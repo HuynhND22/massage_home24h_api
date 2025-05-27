@@ -28,25 +28,21 @@ const PORT = process.env.PORT || 5000;
 // Middleware
 // Cấu hình CORS riêng trước tất cả middleware khác
 app.use((req, res, next) => {
-  // Cấu hình CORS để chấp nhận cả cổng 5173 và 5174
-  const allowedOrigins = ['http://localhost:5173', 'http://localhost:5174', 'http://localhost:3000'];
   const origin = req.headers.origin;
-  
-  if (origin && allowedOrigins.includes(origin)) {
-    res.header('Access-Control-Allow-Origin', origin);
-  }
-  
+
+  // Cho phép tất cả origin
+  res.header('Access-Control-Allow-Origin', origin || '*'); // fallback nếu không có origin
   res.header('Access-Control-Allow-Credentials', 'true');
   res.header('Access-Control-Allow-Headers', 'Origin, X-Requested-With, Content-Type, Accept, Authorization');
   res.header('Access-Control-Allow-Methods', 'GET, POST, PUT, DELETE, PATCH, OPTIONS');
-  
-  // Xử lý OPTIONS request (preflight)
+
   if (req.method === 'OPTIONS') {
-    return res.status(200).end();
+    return res.sendStatus(200);
   }
-  
+
   next();
 });
+
 
 
 

@@ -24,7 +24,7 @@ const createAdmin =  async () => {
     });
     
     console.log('Admin đã được tạo:');
-    console.log('Email: admin@test.com');
+    console.log('Email: admin@home24h.com');
     console.log('Password: Admin123!');
     console.log('Hash mật khẩu:', hashedPassword);
   } catch (error) {

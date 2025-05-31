@@ -1,10 +1,14 @@
 import {
   Controller,
   Post,
+  Delete,
   UseInterceptors,
   UploadedFile,
   UseGuards,
   Query,
+  Body,
+  HttpStatus,
+  HttpException,
 } from '@nestjs/common';
 import { FileInterceptor } from '@nestjs/platform-express';
 import { ApiTags, ApiConsumes, ApiBody, ApiBearerAuth } from '@nestjs/swagger';
@@ -35,8 +39,39 @@ export class UploadController {
   async uploadFile(
     @UploadedFile() file: Express.Multer.File,
     @Query('folder') folder: string = 'uploads',
+    @Query('preserveFilename') preserveFilename: boolean = true,
   ) {
-    const fileUrl = await this.r2StorageService.uploadFile(file, folder);
+    const fileUrl = await this.r2StorageService.uploadFile(file, folder, preserveFilename);
     return { url: fileUrl };
+  }
+
+  @Delete()
+  @ApiBody({
+    schema: {
+      type: 'object',
+      properties: {
+        fileUrl: {
+          type: 'string',
+          description: 'The URL or path of the file to delete',
+        },
+      },
+      required: ['fileUrl'],
+    },
+  })
+  async deleteFile(@Body('fileUrl') fileUrl: string) {
+    if (!fileUrl) {
+      throw new HttpException('fileUrl is required', HttpStatus.BAD_REQUEST);
+    }
+    
+    const result = await this.r2StorageService.deleteFile(fileUrl);
+    
+    if (result) {
+      return {
+        success: true,
+        message: 'File deleted successfully'
+      };
+    } else {
+      throw new HttpException('Failed to delete file', HttpStatus.INTERNAL_SERVER_ERROR);
+    }
   }
 }

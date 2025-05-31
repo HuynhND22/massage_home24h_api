@@ -34,9 +34,23 @@ export class R2StorageService {
   async uploadFile(
     file: Express.Multer.File,
     folder: string = 'uploads',
+    preserveFilename: boolean = true,
   ): Promise<string> {
-    const fileExtension = file.originalname.split('.').pop();
-    const fileName = `${folder}/${uuidv4()}.${fileExtension}`;
+    let fileName: string;
+    if (preserveFilename) {
+      // Get original filename and extension
+      const originalName = file.originalname.split('.').slice(0, -1).join('.');
+      const fileExtension = file.originalname.split('.').pop();
+      // Create a sanitized filename: replace spaces and special characters
+      const sanitizedName = originalName.replace(/[^a-zA-Z0-9]/g, '-').toLowerCase();
+      // Add a timestamp to prevent duplicates
+      const timestamp = new Date().getTime();
+      fileName = `${folder}/${sanitizedName}-${timestamp}.${fileExtension}`;
+    } else {
+      // Use UUID method (original implementation)
+      const fileExtension = file.originalname.split('.').pop();
+      fileName = `${folder}/${uuidv4()}.${fileExtension}`;
+    }
 
     const command = new PutObjectCommand({
       Bucket: this.bucketName,
@@ -49,15 +63,25 @@ export class R2StorageService {
     return `${this.publicUrl}/${fileName}`;
   }
 
-  async deleteFile(fileUrl: string): Promise<void> {
-    const fileName = fileUrl.replace(`${this.publicUrl}/`, '');
+  async deleteFile(fileUrl: string): Promise<boolean> {
+    try {
+      // Handle both full URLs and direct file paths
+      let fileName = fileUrl;
+      if (fileUrl.startsWith(this.publicUrl)) {
+        fileName = fileUrl.replace(`${this.publicUrl}/`, '');
+      }
 
-    const command = new DeleteObjectCommand({
-      Bucket: this.bucketName,
-      Key: fileName,
-    });
+      const command = new DeleteObjectCommand({
+        Bucket: this.bucketName,
+        Key: fileName,
+      });
 
-    await this.s3Client.send(command);
+      await this.s3Client.send(command);
+      return true;
+    } catch (error) {
+      console.error('Error deleting file from R2:', error);
+      return false;
+    }
   }
 
   async generatePresignedUrl(

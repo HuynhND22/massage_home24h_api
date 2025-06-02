@@ -74,20 +74,47 @@ export class CreateWebSettingDto {
   facebook?: string;
 
   @ApiProperty({
-    example: 'https://instagram.com/spa-page',
-    description: 'Instagram page URL of the business',
+    example: 'https://zalo.me/spa-page',
+    description: 'Zalo URL of the business',
     required: false,
   })
   @IsString()
   @IsOptional()
-  instagram?: string;
+  zalo?: string;
 
   @ApiProperty({
-    example: 'https://twitter.com/spa-page',
-    description: 'Twitter page URL of the business',
+    example: 'https://open.kakao.com/spa-page',
+    description: 'KakaoTalk URL or ID of the business',
     required: false,
   })
   @IsString()
   @IsOptional()
-  twitter?: string;
+  kakaotalk?: string;
+
+  @ApiProperty({
+    example: 'https://t.me/spa-page',
+    description: 'Telegram URL or username of the business',
+    required: false,
+  })
+  @IsString()
+  @IsOptional()
+  telegram?: string;
+
+  @ApiProperty({
+    example: 'wxid_xxxxxx',
+    description: 'WeChat ID of the business',
+    required: false,
+  })
+  @IsString()
+  @IsOptional()
+  wechat?: string;
+
+  @ApiProperty({
+    example: 'https://line.me/spa-page',
+    description: 'Line URL or ID of the business',
+    required: false,
+  })
+  @IsString()
+  @IsOptional()
+  line?: string;
 }

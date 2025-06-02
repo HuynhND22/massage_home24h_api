@@ -8,8 +8,11 @@ import {
   Delete,
   Query,
   UseGuards,
+  UseInterceptors,
+  UploadedFile,
+  Req,
 } from '@nestjs/common';
-import { ApiTags, ApiOperation, ApiResponse, ApiBearerAuth } from '@nestjs/swagger';
+import { ApiTags, ApiOperation, ApiResponse, ApiBearerAuth, ApiConsumes } from '@nestjs/swagger';
 import { BlogsService } from './blogs.service';
 import { CreateBlogDto } from './dto/create-blog.dto';
 import { UpdateBlogDto } from './dto/update-blog.dto';
@@ -21,6 +24,7 @@ import { Roles } from '../auth/decorators/roles.decorator';
 import { UserRole } from '../users/entities/user.entity';
 import { Public } from '../auth/decorators/public.decorator';
 import { PaginationDto } from '../../common/dto/pagination.dto';
+import { uploadR2 } from '../../common/middlewares/upload-middleware';
 
 @ApiTags('blogs')
 @Controller('blogs')
@@ -31,11 +35,45 @@ export class BlogsController {
   @ApiBearerAuth()
   @UseGuards(JwtAuthGuard, RolesGuard)
   @Roles(UserRole.ADMIN)
-  @ApiOperation({ summary: 'Create a new blog post' })
+  @ApiOperation({ summary: 'Create a new blog post with image upload' })
+  @ApiConsumes('multipart/form-data')
   @ApiResponse({ status: 201, description: 'Blog post created successfully' })
   @ApiResponse({ status: 400, description: 'Bad request' })
-  create(@Body() createBlogDto: CreateBlogDto) {
-    return this.blogsService.create(createBlogDto);
+  create(@Req() req, @Body() createBlogDto: CreateBlogDto) {
+    // Apply the upload middleware before processing
+    return new Promise((resolve, reject) => {
+      uploadR2(req, req.res, async (err) => {
+        if (err) {
+          return reject(err);
+        }
+        
+        try {
+          // If file was uploaded, set the coverImage field
+          if (req.file && 'location' in req.file) {
+            createBlogDto.coverImage = req.file.location;
+          }
+          
+          // Parse any JSON string fields that might have been sent as form data
+          if (req.body) {
+            Object.keys(req.body).forEach(key => {
+              try {
+                if (typeof req.body[key] === 'string' && req.body[key].startsWith('{')) {
+                  const parsed = JSON.parse(req.body[key]);
+                  createBlogDto[key] = parsed;
+                }
+              } catch (e) {
+                // Not JSON, keep as is
+              }
+            });
+          }
+          
+          const result = await this.blogsService.create(createBlogDto);
+          resolve(result);
+        } catch (error) {
+          reject(error);
+        }
+      });
+    });
   }
 
   @Get()

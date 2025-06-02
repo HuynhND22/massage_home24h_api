@@ -59,7 +59,7 @@ async function bootstrap() {
       // Create default admin user
       const adminUser = await usersService.create({
         name: 'Admin',
-        email: 'admin@example.com',
+        email: 'admin@home24h.com',
         password: 'Admin@123',
         role: UserRole.ADMIN,
         isActive: true

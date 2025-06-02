@@ -8,8 +8,9 @@ import {
   Delete,
   Query,
   UseGuards,
+  Req,
 } from '@nestjs/common';
-import { ApiTags, ApiOperation, ApiResponse, ApiBearerAuth } from '@nestjs/swagger';
+import { ApiTags, ApiOperation, ApiResponse, ApiBearerAuth, ApiConsumes } from '@nestjs/swagger';
 import { SlidesService } from './slides.service';
 import { CreateSlideDto } from './dto/create-slide.dto';
 import { UpdateSlideDto } from './dto/update-slide.dto';
@@ -20,6 +21,7 @@ import { UserRole } from '../users/entities/user.entity';
 import { Public } from '../auth/decorators/public.decorator';
 import { PaginationDto } from '../../common/dto/pagination.dto';
 import { SlideRole } from './entities/slide.entity';
+import { uploadR2 } from '../../common/middlewares/upload-middleware';
 
 @ApiTags('slides')
 @Controller('slides')
@@ -30,11 +32,45 @@ export class SlidesController {
   @ApiBearerAuth()
   @UseGuards(JwtAuthGuard, RolesGuard)
   @Roles(UserRole.ADMIN)
-  @ApiOperation({ summary: 'Create a new slide' })
+  @ApiOperation({ summary: 'Create a new slide with image upload' })
+  @ApiConsumes('multipart/form-data')
   @ApiResponse({ status: 201, description: 'Slide created successfully' })
   @ApiResponse({ status: 400, description: 'Bad request' })
-  create(@Body() createSlideDto: CreateSlideDto) {
-    return this.slidesService.create(createSlideDto);
+  create(@Req() req, @Body() createSlideDto: CreateSlideDto) {
+    // Apply the upload middleware before processing
+    return new Promise((resolve, reject) => {
+      uploadR2(req, req.res, async (err) => {
+        if (err) {
+          return reject(err);
+        }
+        
+        try {
+          // If file was uploaded, set the image field
+          if (req.file && 'location' in req.file) {
+            createSlideDto.image = req.file.location;
+          }
+          
+          // Parse any JSON string fields that might have been sent as form data
+          if (req.body) {
+            Object.keys(req.body).forEach(key => {
+              try {
+                if (typeof req.body[key] === 'string' && req.body[key].startsWith('{')) {
+                  const parsed = JSON.parse(req.body[key]);
+                  createSlideDto[key] = parsed;
+                }
+              } catch (e) {
+                // Not JSON, keep as is
+              }
+            });
+          }
+          
+          const result = await this.slidesService.create(createSlideDto);
+          resolve(result);
+        } catch (error) {
+          reject(error);
+        }
+      });
+    });
   }
 
   @Get()

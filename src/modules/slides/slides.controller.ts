@@ -8,7 +8,8 @@ import {
   Delete,
   Query,
   UseGuards,
-  Req,
+  UseInterceptors,
+  UploadedFile,
 } from '@nestjs/common';
 import { ApiTags, ApiOperation, ApiResponse, ApiBearerAuth, ApiConsumes } from '@nestjs/swagger';
 import { SlidesService } from './slides.service';
@@ -21,12 +22,16 @@ import { UserRole } from '../users/entities/user.entity';
 import { Public } from '../auth/decorators/public.decorator';
 import { PaginationDto } from '../../common/dto/pagination.dto';
 import { SlideRole } from './entities/slide.entity';
-import { uploadR2 } from '../../common/middlewares/upload-middleware';
+import { FileInterceptor } from '@nestjs/platform-express';
+import { R2StorageService } from '../../common/services/r2-storage.service';
 
 @ApiTags('slides')
 @Controller('slides')
 export class SlidesController {
-  constructor(private readonly slidesService: SlidesService) {}
+  constructor(
+    private readonly slidesService: SlidesService,
+    private readonly r2StorageService: R2StorageService
+  ) {}
 
   @Post()
   @ApiBearerAuth()
@@ -36,70 +41,52 @@ export class SlidesController {
   @ApiConsumes('multipart/form-data')
   @ApiResponse({ status: 201, description: 'Slide created successfully' })
   @ApiResponse({ status: 400, description: 'Bad request' })
-  create(@Req() req): Promise<any> {
-    return new Promise((resolve, reject) => {
-      // Áp dụng middleware upload cho request hiện tại
-      uploadR2(req, req.res, async (err) => {
-        if (err) {
-          console.error('Upload middleware error:', err);
-          return reject(err);
-        }
-        
-        try {
-          // Log dữ liệu nhận được để debug
-          console.log('Form data received:', req.body);
-          
-          // Tạo object slide mới từ form data
-          const slideData: any = {};
-          
-          // Gán các trường dữ liệu từ form
-          slideData.title = req.body.title;
-          slideData.description = req.body.description;
-          slideData.role = req.body.role;
-          
-          // Xử lý trường số
-          slideData.order = req.body.order ? parseInt(req.body.order) : undefined;
-          
-          // Nếu có file upload, gán đường dẫn ảnh
-          if (req.file && req.file.location) {
-            slideData.image = req.file.location;
-          }
-          
-          // Log dữ liệu sau khi xử lý
-          console.log('Slide data after processing:', slideData);
-          
-          // Kiểm tra dữ liệu thủ công
-          if (!slideData.title) {
-            return reject({
-              message: 'Title is required',
-              statusCode: 400
-            });
-          }
-          
-          if (!slideData.image) {
-            return reject({
-              message: 'Image is required',
-              statusCode: 400
-            });
-          }
-          
-          if (!slideData.role) {
-            return reject({
-              message: 'Role is required',
-              statusCode: 400
-            });
-          }
-          
-          // Tạo slide trong database
-          const created = await this.slidesService.create(slideData);
-          console.log('Slide created successfully:', created);
-          resolve(created);
-        } catch (error) {
-          console.error('Error creating slide:', error);
-          reject(error);
-        }
-      });
-    });
+  @UseInterceptors(FileInterceptor('image'))
+  async create(
+    @Body() createSlideDto: CreateSlideDto,
+    @UploadedFile() file?: Express.Multer.File
+  ) {
+    try {
+      // Log dữ liệu nhận được để debug
+      console.log('Form data received:', createSlideDto);
+      
+      // Tạo object slide mới từ form data
+      const slideData: any = { ...createSlideDto };
+      
+      // Xử lý trường số
+      slideData.order = slideData.order ? parseInt(slideData.order.toString()) : undefined;
+      
+      // Nếu có file upload, upload lên R2 và gán đường dẫn ảnh
+      if (file) {
+        const fileUrl = await this.r2StorageService.uploadFile(file, 'slides');
+        slideData.image = fileUrl;
+        console.log('File uploaded to R2:', fileUrl);
+      }
+      
+      // Log dữ liệu sau khi xử lý
+      console.log('Slide data after processing:', slideData);
+      
+      // Kiểm tra dữ liệu thủ công
+      if (!slideData.title) {
+        throw new Error('Title is required');
+      }
+      
+      if (!slideData.image) {
+        throw new Error('Image is required');
+      }
+      
+      if (!slideData.role) {
+        throw new Error('Role is required');
+      }
+      
+      // Tạo slide trong database
+      const created = await this.slidesService.create(slideData);
+      console.log('Slide created successfully:', created);
+      return created;
+    } catch (error) {
+      console.error('Error creating slide:', error);
+      throw error;
+    }
   }
 
   @Get()

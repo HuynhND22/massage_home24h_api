@@ -10,7 +10,6 @@ import {
   UseGuards,
   UseInterceptors,
   UploadedFile,
-  Req,
 } from '@nestjs/common';
 import { ApiTags, ApiOperation, ApiResponse, ApiBearerAuth, ApiConsumes } from '@nestjs/swagger';
 import { BlogsService } from './blogs.service';
@@ -24,12 +23,16 @@ import { Roles } from '../auth/decorators/roles.decorator';
 import { UserRole } from '../users/entities/user.entity';
 import { Public } from '../auth/decorators/public.decorator';
 import { PaginationDto } from '../../common/dto/pagination.dto';
-import { uploadR2 } from '../../common/middlewares/upload-middleware';
+import { FileInterceptor } from '@nestjs/platform-express';
+import { R2StorageService } from '../../common/services/r2-storage.service';
 
 @ApiTags('blogs')
 @Controller('blogs')
 export class BlogsController {
-  constructor(private readonly blogsService: BlogsService) {}
+  constructor(
+    private readonly blogsService: BlogsService,
+    private readonly r2StorageService: R2StorageService
+  ) {}
 
   @Post()
   @ApiBearerAuth()
@@ -39,62 +42,45 @@ export class BlogsController {
   @ApiConsumes('multipart/form-data')
   @ApiResponse({ status: 201, description: 'Blog created successfully' })
   @ApiResponse({ status: 400, description: 'Bad request' })
-  create(@Req() req): Promise<any> {
-    return new Promise((resolve, reject) => {
-      // Áp dụng middleware upload cho request hiện tại
-      uploadR2(req, req.res, async (err) => {
-        if (err) {
-          console.error('Upload middleware error:', err);
-          return reject(err);
-        }
-        
-        try {
-          // Log dữ liệu nhận được để debug
-          console.log('Form data received:', req.body);
-          
-          // Tạo object blog mới từ form data
-          const blogData: any = {};
-          
-          // Gán các trường dữ liệu từ form
-          blogData.title = req.body.title;
-          blogData.content = req.body.content;
-          blogData.excerpt = req.body.excerpt;
-          blogData.categoryId = req.body.categoryId;
-          blogData.slug = req.body.slug;
-          
-          // Nếu có file upload, gán đường dẫn ảnh
-          if (req.file && req.file.location) {
-            blogData.coverImage = req.file.location;
-          }
-          
-          // Log dữ liệu sau khi xử lý
-          console.log('Blog data after processing:', blogData);
-          
-          // Kiểm tra dữ liệu thủ công
-          if (!blogData.title) {
-            return reject({
-              message: 'Title is required',
-              statusCode: 400
-            });
-          }
-          
-          if (!blogData.categoryId) {
-            return reject({
-              message: 'Category ID is required',
-              statusCode: 400
-            });
-          }
-          
-          // Tạo blog trong database
-          const created = await this.blogsService.create(blogData);
-          console.log('Blog created successfully:', created);
-          resolve(created);
-        } catch (error) {
-          console.error('Error creating blog:', error);
-          reject(error);
-        }
-      });
-    });
+  @UseInterceptors(FileInterceptor('image'))
+  async create(
+    @Body() createBlogDto: CreateBlogDto,
+    @UploadedFile() file?: Express.Multer.File
+  ) {
+    try {
+      // Log dữ liệu nhận được để debug
+      console.log('Form data received:', createBlogDto);
+      
+      // Tạo object blog mới từ form data
+      const blogData: any = { ...createBlogDto };
+      
+      // Nếu có file upload, upload lên R2 và gán đường dẫn ảnh
+      if (file) {
+        const fileUrl = await this.r2StorageService.uploadFile(file, 'blogs');
+        blogData.coverImage = fileUrl;
+        console.log('File uploaded to R2:', fileUrl);
+      }
+      
+      // Log dữ liệu sau khi xử lý
+      console.log('Blog data after processing:', blogData);
+      
+      // Kiểm tra dữ liệu thủ công
+      if (!blogData.title) {
+        throw new Error('Title is required');
+      }
+      
+      if (!blogData.categoryId) {
+        throw new Error('Category ID is required');
+      }
+      
+      // Tạo blog trong database
+      const created = await this.blogsService.create(blogData);
+      console.log('Blog created successfully:', created);
+      return created;
+    } catch (error) {
+      console.error('Error creating blog:', error);
+      throw error;
+    }
   }
 
   @Get()

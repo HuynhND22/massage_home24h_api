@@ -8,7 +8,8 @@ import {
   Delete,
   Query,
   UseGuards,
-  Req,
+  UseInterceptors,
+  UploadedFile,
 } from '@nestjs/common';
 import { ApiTags, ApiOperation, ApiResponse, ApiBearerAuth, ApiConsumes } from '@nestjs/swagger';
 import { ContactsService } from './contacts.service';
@@ -20,12 +21,16 @@ import { Roles } from '../auth/decorators/roles.decorator';
 import { UserRole } from '../users/entities/user.entity';
 import { Public } from '../auth/decorators/public.decorator';
 import { PaginationDto } from '../../common/dto/pagination.dto';
-import { uploadR2 } from '../../common/middlewares/upload-middleware';
+import { FileInterceptor } from '@nestjs/platform-express';
+import { R2StorageService } from '../../common/services/r2-storage.service';
 
 @ApiTags('contacts')
 @Controller('contacts')
 export class ContactsController {
-  constructor(private readonly contactsService: ContactsService) {}
+  constructor(
+    private readonly contactsService: ContactsService,
+    private readonly r2StorageService: R2StorageService
+  ) {}
 
   @Post()
   @ApiBearerAuth()
@@ -35,41 +40,39 @@ export class ContactsController {
   @ApiConsumes('multipart/form-data')
   @ApiResponse({ status: 201, description: 'Contact created successfully' })
   @ApiResponse({ status: 400, description: 'Bad request' })
-  create(@Req() req, @Body() createContactDto: CreateContactDto) {
-    // Apply the upload middleware before processing
-    return new Promise((resolve, reject) => {
-      uploadR2(req, req.res, async (err) => {
-        if (err) {
-          return reject(err);
-        }
-        
-        try {
-          // If file was uploaded, set the icon field
-          if (req.file && 'location' in req.file) {
-            createContactDto.icon = req.file.location;
+  @UseInterceptors(FileInterceptor('icon'))
+  async create(
+    @Body() createContactDto: CreateContactDto,
+    @UploadedFile() file?: Express.Multer.File
+  ) {
+    try {
+      // If file was uploaded, upload to R2 and set the icon field
+      if (file) {
+        const fileUrl = await this.r2StorageService.uploadFile(file, 'contacts');
+        createContactDto.icon = fileUrl;
+        console.log('Icon uploaded to R2:', fileUrl);
+      }
+      
+      // Parse any JSON string fields that might have been sent as form data
+      if (createContactDto) {
+        Object.keys(createContactDto).forEach(key => {
+          try {
+            if (typeof createContactDto[key] === 'string' && createContactDto[key].startsWith('{')) {
+              const parsed = JSON.parse(createContactDto[key]);
+              createContactDto[key] = parsed;
+            }
+          } catch (e) {
+            // Not JSON, keep as is
           }
-          
-          // Parse any JSON string fields that might have been sent as form data
-          if (req.body) {
-            Object.keys(req.body).forEach(key => {
-              try {
-                if (typeof req.body[key] === 'string' && req.body[key].startsWith('{')) {
-                  const parsed = JSON.parse(req.body[key]);
-                  createContactDto[key] = parsed;
-                }
-              } catch (e) {
-                // Not JSON, keep as is
-              }
-            });
-          }
-          
-          const result = await this.contactsService.create(createContactDto);
-          resolve(result);
-        } catch (error) {
-          reject(error);
-        }
-      });
-    });
+        });
+      }
+      
+      const result = await this.contactsService.create(createContactDto);
+      return result;
+    } catch (error) {
+      console.error('Error creating contact:', error);
+      throw error;
+    }
   }
 
   @Get()

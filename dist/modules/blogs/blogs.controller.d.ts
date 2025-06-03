@@ -1,5 +1,4 @@
 import { BlogsService } from './blogs.service';
-import { CreateBlogDto } from './dto/create-blog.dto';
 import { UpdateBlogDto } from './dto/update-blog.dto';
 import { CreateBlogTranslationDto } from './dto/create-blog-translation.dto';
 import { UpdateBlogTranslationDto } from './dto/update-blog-translation.dto';
@@ -7,7 +6,7 @@ import { PaginationDto } from '../../common/dto/pagination.dto';
 export declare class BlogsController {
     private readonly blogsService;
     constructor(blogsService: BlogsService);
-    create(createBlogDto: CreateBlogDto): Promise<import("./entities/blog.entity").Blog>;
+    create(req: any): Promise<any>;
     findAll(paginationDto: PaginationDto, categoryId?: string, includeDeleted?: boolean): Promise<import("../../common/interfaces/pagination.interface").PaginatedResponse<import("./entities/blog.entity").Blog>>;
     findBySlug(slug: string): Promise<import("./entities/blog.entity").Blog>;
     findOne(id: string, includeDeleted?: boolean): Promise<import("./entities/blog.entity").Blog>;

@@ -5,7 +5,7 @@ import { PaginationDto } from '../../common/dto/pagination.dto';
 export declare class ServicesController {
     private readonly servicesService;
     constructor(servicesService: ServicesService);
-    create(createServiceDto: CreateServiceDto): Promise<import("./entities/service.entity").Service>;
+    create(createServiceDto: CreateServiceDto): Promise<any>;
     findAll(paginationDto: PaginationDto, categoryId?: string, includeDeleted?: boolean): Promise<import("../../common/interfaces/pagination.interface").PaginatedResponse<import("./entities/service.entity").Service>>;
     findOne(id: string, includeDeleted?: boolean): Promise<import("./entities/service.entity").Service>;
     update(id: string, updateServiceDto: UpdateServiceDto): Promise<import("./entities/service.entity").Service>;

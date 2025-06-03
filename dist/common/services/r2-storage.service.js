@@ -22,12 +22,13 @@ let R2StorageService = class R2StorageService {
     publicUrl;
     constructor(configService) {
         this.configService = configService;
-        const accountId = this.configService.get('r2.accountId') || '';
+        const endpoint = this.configService.get('r2.endpoint') || '';
         const accessKeyId = this.configService.get('r2.accessKeyId') || '';
         const secretAccessKey = this.configService.get('r2.secretAccessKey') || '';
+        console.log('R2 Storage Service initializing with endpoint:', endpoint);
         this.s3Client = new client_s3_1.S3Client({
             region: 'auto',
-            endpoint: `https://${accountId}.r2.cloudflarestorage.com`,
+            endpoint: endpoint,
             credentials: {
                 accessKeyId,
                 secretAccessKey,
@@ -36,9 +37,19 @@ let R2StorageService = class R2StorageService {
         this.bucketName = this.configService.get('r2.bucketName') || 'spa-assets';
         this.publicUrl = this.configService.get('r2.publicUrl') || 'https://example.com/assets';
     }
-    async uploadFile(file, folder = 'uploads') {
-        const fileExtension = file.originalname.split('.').pop();
-        const fileName = `${folder}/${(0, uuid_1.v4)()}.${fileExtension}`;
+    async uploadFile(file, folder = 'uploads', preserveFilename = true) {
+        let fileName;
+        if (preserveFilename) {
+            const originalName = file.originalname.split('.').slice(0, -1).join('.');
+            const fileExtension = file.originalname.split('.').pop();
+            const sanitizedName = originalName.replace(/[^a-zA-Z0-9]/g, '-').toLowerCase();
+            const timestamp = new Date().getTime();
+            fileName = `${folder}/${sanitizedName}-${timestamp}.${fileExtension}`;
+        }
+        else {
+            const fileExtension = file.originalname.split('.').pop();
+            fileName = `${folder}/${(0, uuid_1.v4)()}.${fileExtension}`;
+        }
         const command = new client_s3_1.PutObjectCommand({
             Bucket: this.bucketName,
             Key: fileName,
@@ -49,12 +60,22 @@ let R2StorageService = class R2StorageService {
         return `${this.publicUrl}/${fileName}`;
     }
     async deleteFile(fileUrl) {
-        const fileName = fileUrl.replace(`${this.publicUrl}/`, '');
-        const command = new client_s3_1.DeleteObjectCommand({
-            Bucket: this.bucketName,
-            Key: fileName,
-        });
-        await this.s3Client.send(command);
+        try {
+            let fileName = fileUrl;
+            if (fileUrl.startsWith(this.publicUrl)) {
+                fileName = fileUrl.replace(`${this.publicUrl}/`, '');
+            }
+            const command = new client_s3_1.DeleteObjectCommand({
+                Bucket: this.bucketName,
+                Key: fileName,
+            });
+            await this.s3Client.send(command);
+            return true;
+        }
+        catch (error) {
+            console.error('Error deleting file from R2:', error);
+            return false;
+        }
     }
     async generatePresignedUrl(key, expiresIn = 3600) {
         const command = new client_s3_1.PutObjectCommand({

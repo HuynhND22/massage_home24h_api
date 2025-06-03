@@ -5,7 +5,7 @@ export declare class R2StorageService {
     private bucketName;
     private publicUrl;
     constructor(configService: ConfigService);
-    uploadFile(file: Express.Multer.File, folder?: string): Promise<string>;
-    deleteFile(fileUrl: string): Promise<void>;
+    uploadFile(file: Express.Multer.File, folder?: string, preserveFilename?: boolean): Promise<string>;
+    deleteFile(fileUrl: string): Promise<boolean>;
     generatePresignedUrl(key: string, expiresIn?: number): Promise<string>;
 }

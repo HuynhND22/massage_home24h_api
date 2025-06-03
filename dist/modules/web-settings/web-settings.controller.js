@@ -23,19 +23,76 @@ const roles_guard_1 = require("../auth/guards/roles.guard");
 const roles_decorator_1 = require("../auth/decorators/roles.decorator");
 const user_entity_1 = require("../users/entities/user.entity");
 const public_decorator_1 = require("../auth/decorators/public.decorator");
+const upload_middleware_1 = require("../../common/middlewares/upload-middleware");
 let WebSettingsController = class WebSettingsController {
     webSettingsService;
     constructor(webSettingsService) {
         this.webSettingsService = webSettingsService;
     }
-    create(createWebSettingDto) {
-        return this.webSettingsService.create(createWebSettingDto);
+    create(req, createWebSettingDto) {
+        return new Promise((resolve, reject) => {
+            (0, upload_middleware_1.uploadR2)(req, req.res, async (err) => {
+                if (err) {
+                    return reject(err);
+                }
+                try {
+                    if (req.file && 'location' in req.file) {
+                        createWebSettingDto.logo = req.file.location;
+                    }
+                    if (req.body) {
+                        Object.keys(req.body).forEach(key => {
+                            try {
+                                if (typeof req.body[key] === 'string' && req.body[key].startsWith('{')) {
+                                    const parsed = JSON.parse(req.body[key]);
+                                    createWebSettingDto[key] = parsed;
+                                }
+                            }
+                            catch (e) {
+                            }
+                        });
+                    }
+                    const result = await this.webSettingsService.create(createWebSettingDto);
+                    resolve(result);
+                }
+                catch (error) {
+                    reject(error);
+                }
+            });
+        });
     }
     findOne(includeDeleted) {
         return this.webSettingsService.findOne(includeDeleted);
     }
-    update(id, updateWebSettingDto) {
-        return this.webSettingsService.update(id, updateWebSettingDto);
+    update(id, req, updateWebSettingDto) {
+        return new Promise((resolve, reject) => {
+            (0, upload_middleware_1.uploadR2)(req, req.res, async (err) => {
+                if (err) {
+                    return reject(err);
+                }
+                try {
+                    if (req.file && 'location' in req.file) {
+                        updateWebSettingDto.logo = req.file.location;
+                    }
+                    if (req.body) {
+                        Object.keys(req.body).forEach(key => {
+                            try {
+                                if (typeof req.body[key] === 'string' && req.body[key].startsWith('{')) {
+                                    const parsed = JSON.parse(req.body[key]);
+                                    updateWebSettingDto[key] = parsed;
+                                }
+                            }
+                            catch (e) {
+                            }
+                        });
+                    }
+                    const result = await this.webSettingsService.update(id, updateWebSettingDto);
+                    resolve(result);
+                }
+                catch (error) {
+                    reject(error);
+                }
+            });
+        });
     }
     remove(id) {
         return this.webSettingsService.remove(id);
@@ -50,12 +107,14 @@ __decorate([
     (0, swagger_1.ApiBearerAuth)(),
     (0, common_1.UseGuards)(jwt_auth_guard_1.JwtAuthGuard, roles_guard_1.RolesGuard),
     (0, roles_decorator_1.Roles)(user_entity_1.UserRole.ADMIN),
-    (0, swagger_1.ApiOperation)({ summary: 'Create web settings' }),
+    (0, swagger_1.ApiOperation)({ summary: 'Create web settings with logo upload' }),
+    (0, swagger_1.ApiConsumes)('multipart/form-data'),
     (0, swagger_1.ApiResponse)({ status: 201, description: 'Web settings created successfully' }),
     (0, swagger_1.ApiResponse)({ status: 400, description: 'Bad request' }),
-    __param(0, (0, common_1.Body)()),
+    __param(0, (0, common_1.Req)()),
+    __param(1, (0, common_1.Body)()),
     __metadata("design:type", Function),
-    __metadata("design:paramtypes", [create_web_setting_dto_1.CreateWebSettingDto]),
+    __metadata("design:paramtypes", [Object, create_web_setting_dto_1.CreateWebSettingDto]),
     __metadata("design:returntype", void 0)
 ], WebSettingsController.prototype, "create", null);
 __decorate([
@@ -74,13 +133,15 @@ __decorate([
     (0, swagger_1.ApiBearerAuth)(),
     (0, common_1.UseGuards)(jwt_auth_guard_1.JwtAuthGuard, roles_guard_1.RolesGuard),
     (0, roles_decorator_1.Roles)(user_entity_1.UserRole.ADMIN),
-    (0, swagger_1.ApiOperation)({ summary: 'Update web settings' }),
+    (0, swagger_1.ApiOperation)({ summary: 'Update web settings with logo upload' }),
+    (0, swagger_1.ApiConsumes)('multipart/form-data'),
     (0, swagger_1.ApiResponse)({ status: 200, description: 'Web settings updated successfully' }),
     (0, swagger_1.ApiResponse)({ status: 404, description: 'Web settings not found' }),
     __param(0, (0, common_1.Param)('id')),
-    __param(1, (0, common_1.Body)()),
+    __param(1, (0, common_1.Req)()),
+    __param(2, (0, common_1.Body)()),
     __metadata("design:type", Function),
-    __metadata("design:paramtypes", [String, update_web_setting_dto_1.UpdateWebSettingDto]),
+    __metadata("design:paramtypes", [String, Object, update_web_setting_dto_1.UpdateWebSettingDto]),
     __metadata("design:returntype", void 0)
 ], WebSettingsController.prototype, "update", null);
 __decorate([

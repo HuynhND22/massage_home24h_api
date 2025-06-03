@@ -15,13 +15,15 @@ export class R2StorageService {
   private publicUrl: string;
 
   constructor(private configService: ConfigService) {
-    const accountId = this.configService.get<string>('r2.accountId') || '';
+    const endpoint = this.configService.get<string>('r2.endpoint') || '';
     const accessKeyId = this.configService.get<string>('r2.accessKeyId') || '';
     const secretAccessKey = this.configService.get<string>('r2.secretAccessKey') || '';
     
+    console.log('R2 Storage Service initializing with endpoint:', endpoint);
+    
     this.s3Client = new S3Client({
       region: 'auto',
-      endpoint: `https://${accountId}.r2.cloudflarestorage.com`,
+      endpoint: endpoint,
       credentials: {
         accessKeyId,
         secretAccessKey,

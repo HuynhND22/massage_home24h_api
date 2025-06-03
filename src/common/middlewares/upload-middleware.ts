@@ -12,11 +12,19 @@ interface ExtendedRequest extends Request {
 }
 
 export const uploadR2 = (req: ExtendedRequest, res: Response, next: NextFunction) => {
+  console.log('uploadR2 middleware called');
+  
   const r2Endpoint = process.env.R2_ENDPOINT;
   const r2AccessKeyId = process.env.R2_ACCESS_KEY_ID;
   const r2SecretAccessKey = process.env.R2_SECRET_ACCESS_KEY;
-  const r2BucketName = process.env.R2_BUCKET || 'spa-assets';
+  const r2BucketName = process.env.R2_BUCKET_NAME || 'spa-assets';
   const r2PublicUrl = process.env.R2_PUBLIC_URL || 'https://example.com/assets';
+  
+  console.log('R2 config in middleware:', { 
+    endpoint: r2Endpoint,
+    bucketName: r2BucketName,
+    publicUrl: r2PublicUrl 
+  });
 
   // Ensure uploads directory exists
   const uploadDir = './uploads';
@@ -32,6 +40,8 @@ export const uploadR2 = (req: ExtendedRequest, res: Response, next: NextFunction
       secretAccessKey: r2SecretAccessKey || '',
     },
   });
+  
+  console.log('S3 Client initialized with endpoint:', r2Endpoint);
 
   const storage = multer.diskStorage({
     destination: (req, file, cb) => {

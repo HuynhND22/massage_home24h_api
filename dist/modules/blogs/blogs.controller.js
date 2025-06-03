@@ -16,7 +16,6 @@ exports.BlogsController = void 0;
 const common_1 = require("@nestjs/common");
 const swagger_1 = require("@nestjs/swagger");
 const blogs_service_1 = require("./blogs.service");
-const create_blog_dto_1 = require("./dto/create-blog.dto");
 const update_blog_dto_1 = require("./dto/update-blog.dto");
 const create_blog_translation_dto_1 = require("./dto/create-blog-translation.dto");
 const update_blog_translation_dto_1 = require("./dto/update-blog-translation.dto");
@@ -26,13 +25,53 @@ const roles_decorator_1 = require("../auth/decorators/roles.decorator");
 const user_entity_1 = require("../users/entities/user.entity");
 const public_decorator_1 = require("../auth/decorators/public.decorator");
 const pagination_dto_1 = require("../../common/dto/pagination.dto");
+const upload_middleware_1 = require("../../common/middlewares/upload-middleware");
 let BlogsController = class BlogsController {
     blogsService;
     constructor(blogsService) {
         this.blogsService = blogsService;
     }
-    create(createBlogDto) {
-        return this.blogsService.create(createBlogDto);
+    create(req) {
+        return new Promise((resolve, reject) => {
+            (0, upload_middleware_1.uploadR2)(req, req.res, async (err) => {
+                if (err) {
+                    console.error('Upload middleware error:', err);
+                    return reject(err);
+                }
+                try {
+                    console.log('Form data received:', req.body);
+                    const blogData = {};
+                    blogData.title = req.body.title;
+                    blogData.content = req.body.content;
+                    blogData.excerpt = req.body.excerpt;
+                    blogData.categoryId = req.body.categoryId;
+                    blogData.slug = req.body.slug;
+                    if (req.file && req.file.location) {
+                        blogData.coverImage = req.file.location;
+                    }
+                    console.log('Blog data after processing:', blogData);
+                    if (!blogData.title) {
+                        return reject({
+                            message: 'Title is required',
+                            statusCode: 400
+                        });
+                    }
+                    if (!blogData.categoryId) {
+                        return reject({
+                            message: 'Category ID is required',
+                            statusCode: 400
+                        });
+                    }
+                    const created = await this.blogsService.create(blogData);
+                    console.log('Blog created successfully:', created);
+                    resolve(created);
+                }
+                catch (error) {
+                    console.error('Error creating blog:', error);
+                    reject(error);
+                }
+            });
+        });
     }
     findAll(paginationDto, categoryId, includeDeleted) {
         return this.blogsService.findAll({ ...paginationDto, categoryId }, includeDeleted);
@@ -74,13 +113,14 @@ __decorate([
     (0, swagger_1.ApiBearerAuth)(),
     (0, common_1.UseGuards)(jwt_auth_guard_1.JwtAuthGuard, roles_guard_1.RolesGuard),
     (0, roles_decorator_1.Roles)(user_entity_1.UserRole.ADMIN),
-    (0, swagger_1.ApiOperation)({ summary: 'Create a new blog post' }),
-    (0, swagger_1.ApiResponse)({ status: 201, description: 'Blog post created successfully' }),
+    (0, swagger_1.ApiOperation)({ summary: 'Create a new blog with image upload' }),
+    (0, swagger_1.ApiConsumes)('multipart/form-data'),
+    (0, swagger_1.ApiResponse)({ status: 201, description: 'Blog created successfully' }),
     (0, swagger_1.ApiResponse)({ status: 400, description: 'Bad request' }),
-    __param(0, (0, common_1.Body)()),
+    __param(0, (0, common_1.Req)()),
     __metadata("design:type", Function),
-    __metadata("design:paramtypes", [create_blog_dto_1.CreateBlogDto]),
-    __metadata("design:returntype", void 0)
+    __metadata("design:paramtypes", [Object]),
+    __metadata("design:returntype", Promise)
 ], BlogsController.prototype, "create", null);
 __decorate([
     (0, common_1.Get)(),

@@ -21,8 +21,11 @@ class CreateWebSettingDto {
     email;
     phone;
     facebook;
-    instagram;
-    twitter;
+    zalo;
+    kakaotalk;
+    telegram;
+    wechat;
+    line;
 }
 exports.CreateWebSettingDto = CreateWebSettingDto;
 __decorate([
@@ -106,22 +109,52 @@ __decorate([
 ], CreateWebSettingDto.prototype, "facebook", void 0);
 __decorate([
     (0, swagger_1.ApiProperty)({
-        example: 'https://instagram.com/spa-page',
-        description: 'Instagram page URL of the business',
+        example: 'https://zalo.me/spa-page',
+        description: 'Zalo URL of the business',
         required: false,
     }),
     (0, class_validator_1.IsString)(),
     (0, class_validator_1.IsOptional)(),
     __metadata("design:type", String)
-], CreateWebSettingDto.prototype, "instagram", void 0);
+], CreateWebSettingDto.prototype, "zalo", void 0);
 __decorate([
     (0, swagger_1.ApiProperty)({
-        example: 'https://twitter.com/spa-page',
-        description: 'Twitter page URL of the business',
+        example: 'https://open.kakao.com/spa-page',
+        description: 'KakaoTalk URL or ID of the business',
         required: false,
     }),
     (0, class_validator_1.IsString)(),
     (0, class_validator_1.IsOptional)(),
     __metadata("design:type", String)
-], CreateWebSettingDto.prototype, "twitter", void 0);
+], CreateWebSettingDto.prototype, "kakaotalk", void 0);
+__decorate([
+    (0, swagger_1.ApiProperty)({
+        example: 'https://t.me/spa-page',
+        description: 'Telegram URL or username of the business',
+        required: false,
+    }),
+    (0, class_validator_1.IsString)(),
+    (0, class_validator_1.IsOptional)(),
+    __metadata("design:type", String)
+], CreateWebSettingDto.prototype, "telegram", void 0);
+__decorate([
+    (0, swagger_1.ApiProperty)({
+        example: 'wxid_xxxxxx',
+        description: 'WeChat ID of the business',
+        required: false,
+    }),
+    (0, class_validator_1.IsString)(),
+    (0, class_validator_1.IsOptional)(),
+    __metadata("design:type", String)
+], CreateWebSettingDto.prototype, "wechat", void 0);
+__decorate([
+    (0, swagger_1.ApiProperty)({
+        example: 'https://line.me/spa-page',
+        description: 'Line URL or ID of the business',
+        required: false,
+    }),
+    (0, class_validator_1.IsString)(),
+    (0, class_validator_1.IsOptional)(),
+    __metadata("design:type", String)
+], CreateWebSettingDto.prototype, "line", void 0);
 //# sourceMappingURL=create-web-setting.dto.js.map

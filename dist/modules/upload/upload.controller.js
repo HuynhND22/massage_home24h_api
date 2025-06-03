@@ -23,9 +23,24 @@ let UploadController = class UploadController {
     constructor(r2StorageService) {
         this.r2StorageService = r2StorageService;
     }
-    async uploadFile(file, folder = 'uploads') {
-        const fileUrl = await this.r2StorageService.uploadFile(file, folder);
+    async uploadFile(file, folder = 'uploads', preserveFilename = true) {
+        const fileUrl = await this.r2StorageService.uploadFile(file, folder, preserveFilename);
         return { url: fileUrl };
+    }
+    async deleteFile(fileUrl) {
+        if (!fileUrl) {
+            throw new common_1.HttpException('fileUrl is required', common_1.HttpStatus.BAD_REQUEST);
+        }
+        const result = await this.r2StorageService.deleteFile(fileUrl);
+        if (result) {
+            return {
+                success: true,
+                message: 'File deleted successfully'
+            };
+        }
+        else {
+            throw new common_1.HttpException('Failed to delete file', common_1.HttpStatus.INTERNAL_SERVER_ERROR);
+        }
     }
 };
 exports.UploadController = UploadController;
@@ -46,10 +61,30 @@ __decorate([
     }),
     __param(0, (0, common_1.UploadedFile)()),
     __param(1, (0, common_1.Query)('folder')),
+    __param(2, (0, common_1.Query)('preserveFilename')),
     __metadata("design:type", Function),
-    __metadata("design:paramtypes", [Object, String]),
+    __metadata("design:paramtypes", [Object, String, Boolean]),
     __metadata("design:returntype", Promise)
 ], UploadController.prototype, "uploadFile", null);
+__decorate([
+    (0, common_1.Delete)(),
+    (0, swagger_1.ApiBody)({
+        schema: {
+            type: 'object',
+            properties: {
+                fileUrl: {
+                    type: 'string',
+                    description: 'The URL or path of the file to delete',
+                },
+            },
+            required: ['fileUrl'],
+        },
+    }),
+    __param(0, (0, common_1.Body)('fileUrl')),
+    __metadata("design:type", Function),
+    __metadata("design:paramtypes", [String]),
+    __metadata("design:returntype", Promise)
+], UploadController.prototype, "deleteFile", null);
 exports.UploadController = UploadController = __decorate([
     (0, swagger_1.ApiTags)('upload'),
     (0, swagger_1.ApiBearerAuth)(),

@@ -24,13 +24,42 @@ const roles_decorator_1 = require("../auth/decorators/roles.decorator");
 const user_entity_1 = require("../users/entities/user.entity");
 const public_decorator_1 = require("../auth/decorators/public.decorator");
 const pagination_dto_1 = require("../../common/dto/pagination.dto");
+const upload_middleware_1 = require("../../common/middlewares/upload-middleware");
 let ContactsController = class ContactsController {
     contactsService;
     constructor(contactsService) {
         this.contactsService = contactsService;
     }
-    create(createContactDto) {
-        return this.contactsService.create(createContactDto);
+    create(req, createContactDto) {
+        return new Promise((resolve, reject) => {
+            (0, upload_middleware_1.uploadR2)(req, req.res, async (err) => {
+                if (err) {
+                    return reject(err);
+                }
+                try {
+                    if (req.file && 'location' in req.file) {
+                        createContactDto.icon = req.file.location;
+                    }
+                    if (req.body) {
+                        Object.keys(req.body).forEach(key => {
+                            try {
+                                if (typeof req.body[key] === 'string' && req.body[key].startsWith('{')) {
+                                    const parsed = JSON.parse(req.body[key]);
+                                    createContactDto[key] = parsed;
+                                }
+                            }
+                            catch (e) {
+                            }
+                        });
+                    }
+                    const result = await this.contactsService.create(createContactDto);
+                    resolve(result);
+                }
+                catch (error) {
+                    reject(error);
+                }
+            });
+        });
     }
     findAll(paginationDto, includeDeleted) {
         return this.contactsService.findAll(paginationDto, includeDeleted);
@@ -54,12 +83,14 @@ __decorate([
     (0, swagger_1.ApiBearerAuth)(),
     (0, common_1.UseGuards)(jwt_auth_guard_1.JwtAuthGuard, roles_guard_1.RolesGuard),
     (0, roles_decorator_1.Roles)(user_entity_1.UserRole.ADMIN),
-    (0, swagger_1.ApiOperation)({ summary: 'Create a new contact' }),
+    (0, swagger_1.ApiOperation)({ summary: 'Create a new contact with icon upload' }),
+    (0, swagger_1.ApiConsumes)('multipart/form-data'),
     (0, swagger_1.ApiResponse)({ status: 201, description: 'Contact created successfully' }),
     (0, swagger_1.ApiResponse)({ status: 400, description: 'Bad request' }),
-    __param(0, (0, common_1.Body)()),
+    __param(0, (0, common_1.Req)()),
+    __param(1, (0, common_1.Body)()),
     __metadata("design:type", Function),
-    __metadata("design:paramtypes", [create_contact_dto_1.CreateContactDto]),
+    __metadata("design:paramtypes", [Object, create_contact_dto_1.CreateContactDto]),
     __metadata("design:returntype", void 0)
 ], ContactsController.prototype, "create", null);
 __decorate([

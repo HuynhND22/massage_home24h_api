@@ -8,7 +8,7 @@ declare const _default: () => {
         expiresIn: string;
     };
     r2: {
-        accountId: string;
+        endpoint: string;
         accessKeyId: string;
         secretAccessKey: string;
         bucketName: string;

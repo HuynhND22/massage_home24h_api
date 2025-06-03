@@ -9,8 +9,9 @@ import {
   Delete,
   Query,
   UseGuards,
-  Req,
-  UseInterceptors
+  UseInterceptors,
+  HttpException,
+  HttpStatus,
 } from '@nestjs/common';
 import { LoggingInterceptor } from '../../common/interceptors/logging.interceptor';
 import {
@@ -29,7 +30,6 @@ import { Roles } from '../auth/decorators/roles.decorator';
 import { UserRole } from '../users/entities/user.entity';
 import { Public } from '../auth/decorators/public.decorator';
 import { PaginationDto } from '../../common/dto/pagination.dto';
-import { uploadR2 } from '../../common/middlewares/upload-middleware';
 
 @ApiTags('services')
 @Controller('services')
@@ -39,102 +39,46 @@ export class ServicesController {
 
   @Post()
   @ApiBearerAuth()
-  @Public() // Thêm decorator Public để bỏ qua JwtAuthGuard khi test
-  // @UseGuards(JwtAuthGuard, RolesGuard)
-  // @Roles(UserRole.ADMIN)
-  @ApiOperation({ summary: 'Create a new service with image upload to R2' })
-  @ApiConsumes('multipart/form-data')
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles(UserRole.ADMIN)
+  @ApiOperation({ summary: 'Create a new service' })
   @ApiResponse({ status: 201, description: 'Service created successfully' })
   @ApiResponse({ status: 400, description: 'Bad request' })
-  create(@Req() req): Promise<any> {
-    return new Promise((resolve, reject) => {
-      console.log('----------------------------------------');
-      console.log('RECEIVED REQUEST - BEFORE UPLOAD MIDDLEWARE');
-      console.log('Content-Type:', req.headers['content-type']);
-      console.log('Body (keys):', Object.keys(req.body));
-      console.log('Body (raw):', req.body);
-      console.log('----------------------------------------');
-
-      // Áp dụng middleware uploadR2
-      uploadR2(req, req.res, async (err) => {
-        if (err) {
-          console.error('UPLOAD MIDDLEWARE ERROR:', err);
-          return reject({
-            message: 'Lỗi khi xử lý tập tin: ' + err.message,
-            statusCode: 400
-          });
-        }
-        
-        try {
-          console.log('----------------------------------------');
-          console.log('AFTER UPLOAD MIDDLEWARE');
-          console.log('Body (keys):', Object.keys(req.body));
-          console.log('Body values:', req.body);
-          console.log('File:', req.file ? `${req.file.originalname} (${req.file.mimetype})` : 'No file');
-          console.log('----------------------------------------');
-          
-          // Tạo service mới từ form data
-          const serviceData: any = {};
-          
-          // Gán các trường cơ bản
-          serviceData.name = req.body.name;
-          serviceData.description = req.body.description;
-          
-          // Xử lý kiểu dữ liệu cho các trường số
-          if (req.body.duration) {
-            const durationNum = parseFloat(req.body.duration);
-            serviceData.duration = isNaN(durationNum) ? 0 : durationNum;
-          }
-          
-          if (req.body.price) {
-            const priceNum = parseFloat(req.body.price);
-            serviceData.price = isNaN(priceNum) ? 0 : priceNum;
-          }
-          
-          if (req.body.discount) {
-            const discountNum = parseFloat(req.body.discount);
-            serviceData.discount = isNaN(discountNum) ? 0 : discountNum;
-          }
-          
-          // Gán categoryId
-          serviceData.categoryId = req.body.categoryId;
-          
-          // Gán đường dẫn ảnh nếu có
-          if (req.file && req.file.location) {
-            serviceData.coverImage = req.file.location;
-            console.log('File uploaded to:', req.file.location);
-          }
-          
-          // Hiển thị dữ liệu đã xử lý
-          console.log('SERVICE DATA TO BE CREATED:', serviceData);
-          
-          // Kiểm tra các trường bắt buộc
-          const errors: string[] = [];
-          
-          if (!serviceData.name) errors.push('Name is required');
-          if (!serviceData.duration || serviceData.duration <= 0) errors.push('Duration must be a positive number');
-          if (!serviceData.price || serviceData.price <= 0) errors.push('Price must be a positive number');
-          if (!serviceData.categoryId) errors.push('Category ID is required');
-          
-          if (errors.length > 0) {
-            console.log('VALIDATION ERRORS:', errors);
-            return reject({
-              message: errors,
-              statusCode: 400
-            });
-          }
-          
-          // Gọi service để tạo record mới
-          console.log('CREATING NEW SERVICE...');
-          const created = await this.servicesService.create(serviceData);
-          console.log('SERVICE CREATED SUCCESSFULLY:', created.id);
-          resolve(created);
-        } catch (error) {
-          console.error('Error creating service:', error);
-          reject(error);
-        }
+  create(@Body() createServiceDto: CreateServiceDto): Promise<any> {
+    console.log('Create service request received:', createServiceDto);
+    
+    try {
+      // Thực hiện validate thủ công các trường cần thiết
+      const errors: string[] = [];
+      
+      if (!createServiceDto.name) errors.push('Name is required');
+      if (!createServiceDto.duration || createServiceDto.duration <= 0) errors.push('Duration must be a positive number');
+      if (!createServiceDto.price || createServiceDto.price <= 0) errors.push('Price must be a positive number');
+      if (!createServiceDto.categoryId) errors.push('Category ID is required');
+      
+      if (errors.length > 0) {
+        console.log('Validation errors:', errors);
+        throw new HttpException({
+          message: errors,
+          statusCode: HttpStatus.BAD_REQUEST
+        }, HttpStatus.BAD_REQUEST);
+      }
+      
+      // coverImage giờ đây sẽ là URL được frontend gửi lên sau khi upload thành công
+      console.log('Processing service with data:', {
+        name: createServiceDto.name,
+        description: createServiceDto.description?.substring(0, 30) + '...',
+        duration: createServiceDto.duration,
+        price: createServiceDto.price,
+        coverImage: createServiceDto.coverImage || 'No image provided'
       });
-    });
+      
+      // Gọi service để tạo record mới
+      return this.servicesService.create(createServiceDto);
+    } catch (error) {
+      console.error('Error in create service:', error);
+      throw error;
+    }
   }
 
   @Get()

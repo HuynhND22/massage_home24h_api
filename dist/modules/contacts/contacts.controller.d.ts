@@ -5,7 +5,7 @@ import { PaginationDto } from '../../common/dto/pagination.dto';
 export declare class ContactsController {
     private readonly contactsService;
     constructor(contactsService: ContactsService);
-    create(createContactDto: CreateContactDto): Promise<import("./entities/contact.entity").Contact>;
+    create(req: any, createContactDto: CreateContactDto): Promise<unknown>;
     findAll(paginationDto: PaginationDto, includeDeleted?: boolean): Promise<import("../../common/interfaces/pagination.interface").PaginatedResponse<import("./entities/contact.entity").Contact>>;
     findOne(id: string, includeDeleted?: boolean): Promise<import("./entities/contact.entity").Contact>;
     update(id: string, updateContactDto: UpdateContactDto): Promise<import("./entities/contact.entity").Contact>;

@@ -4,9 +4,9 @@ import { UpdateWebSettingDto } from './dto/update-web-setting.dto';
 export declare class WebSettingsController {
     private readonly webSettingsService;
     constructor(webSettingsService: WebSettingsService);
-    create(createWebSettingDto: CreateWebSettingDto): Promise<import("./entities/web-setting.entity").WebSetting>;
+    create(req: any, createWebSettingDto: CreateWebSettingDto): Promise<unknown>;
     findOne(includeDeleted?: boolean): Promise<import("./entities/web-setting.entity").WebSetting>;
-    update(id: string, updateWebSettingDto: UpdateWebSettingDto): Promise<import("./entities/web-setting.entity").WebSetting>;
+    update(id: string, req: any, updateWebSettingDto: UpdateWebSettingDto): Promise<unknown>;
     remove(id: string): Promise<void>;
     restore(id: string): Promise<import("./entities/web-setting.entity").WebSetting>;
 }

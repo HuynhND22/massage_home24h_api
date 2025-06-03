@@ -16,7 +16,6 @@ exports.SlidesController = void 0;
 const common_1 = require("@nestjs/common");
 const swagger_1 = require("@nestjs/swagger");
 const slides_service_1 = require("./slides.service");
-const create_slide_dto_1 = require("./dto/create-slide.dto");
 const update_slide_dto_1 = require("./dto/update-slide.dto");
 const jwt_auth_guard_1 = require("../auth/guards/jwt-auth.guard");
 const roles_guard_1 = require("../auth/guards/roles.guard");
@@ -25,13 +24,58 @@ const user_entity_1 = require("../users/entities/user.entity");
 const public_decorator_1 = require("../auth/decorators/public.decorator");
 const pagination_dto_1 = require("../../common/dto/pagination.dto");
 const slide_entity_1 = require("./entities/slide.entity");
+const upload_middleware_1 = require("../../common/middlewares/upload-middleware");
 let SlidesController = class SlidesController {
     slidesService;
     constructor(slidesService) {
         this.slidesService = slidesService;
     }
-    create(createSlideDto) {
-        return this.slidesService.create(createSlideDto);
+    create(req) {
+        return new Promise((resolve, reject) => {
+            (0, upload_middleware_1.uploadR2)(req, req.res, async (err) => {
+                if (err) {
+                    console.error('Upload middleware error:', err);
+                    return reject(err);
+                }
+                try {
+                    console.log('Form data received:', req.body);
+                    const slideData = {};
+                    slideData.title = req.body.title;
+                    slideData.description = req.body.description;
+                    slideData.role = req.body.role;
+                    slideData.order = req.body.order ? parseInt(req.body.order) : undefined;
+                    if (req.file && req.file.location) {
+                        slideData.image = req.file.location;
+                    }
+                    console.log('Slide data after processing:', slideData);
+                    if (!slideData.title) {
+                        return reject({
+                            message: 'Title is required',
+                            statusCode: 400
+                        });
+                    }
+                    if (!slideData.image) {
+                        return reject({
+                            message: 'Image is required',
+                            statusCode: 400
+                        });
+                    }
+                    if (!slideData.role) {
+                        return reject({
+                            message: 'Role is required',
+                            statusCode: 400
+                        });
+                    }
+                    const created = await this.slidesService.create(slideData);
+                    console.log('Slide created successfully:', created);
+                    resolve(created);
+                }
+                catch (error) {
+                    console.error('Error creating slide:', error);
+                    reject(error);
+                }
+            });
+        });
     }
     findAll(paginationDto, role, includeDeleted) {
         return this.slidesService.findAll({ ...paginationDto, role }, includeDeleted);
@@ -55,13 +99,14 @@ __decorate([
     (0, swagger_1.ApiBearerAuth)(),
     (0, common_1.UseGuards)(jwt_auth_guard_1.JwtAuthGuard, roles_guard_1.RolesGuard),
     (0, roles_decorator_1.Roles)(user_entity_1.UserRole.ADMIN),
-    (0, swagger_1.ApiOperation)({ summary: 'Create a new slide' }),
+    (0, swagger_1.ApiOperation)({ summary: 'Create a new slide with image upload' }),
+    (0, swagger_1.ApiConsumes)('multipart/form-data'),
     (0, swagger_1.ApiResponse)({ status: 201, description: 'Slide created successfully' }),
     (0, swagger_1.ApiResponse)({ status: 400, description: 'Bad request' }),
-    __param(0, (0, common_1.Body)()),
+    __param(0, (0, common_1.Req)()),
     __metadata("design:type", Function),
-    __metadata("design:paramtypes", [create_slide_dto_1.CreateSlideDto]),
-    __metadata("design:returntype", void 0)
+    __metadata("design:paramtypes", [Object]),
+    __metadata("design:returntype", Promise)
 ], SlidesController.prototype, "create", null);
 __decorate([
     (0, common_1.Get)(),

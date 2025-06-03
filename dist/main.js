@@ -43,7 +43,7 @@ async function bootstrap() {
             logger.log('No users found in database. Creating default admin user...');
             const adminUser = await usersService.create({
                 name: 'Admin',
-                email: 'admin@example.com',
+                email: 'admin@home24h.com',
                 password: 'Admin@123',
                 role: user_entity_1.UserRole.ADMIN,
                 isActive: true

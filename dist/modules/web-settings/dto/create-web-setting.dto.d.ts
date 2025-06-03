@@ -7,6 +7,9 @@ export declare class CreateWebSettingDto {
     email?: string;
     phone?: string;
     facebook?: string;
-    instagram?: string;
-    twitter?: string;
+    zalo?: string;
+    kakaotalk?: string;
+    telegram?: string;
+    wechat?: string;
+    line?: string;
 }

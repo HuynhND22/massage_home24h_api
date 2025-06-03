@@ -35,41 +35,62 @@ export class BlogsController {
   @ApiBearerAuth()
   @UseGuards(JwtAuthGuard, RolesGuard)
   @Roles(UserRole.ADMIN)
-  @ApiOperation({ summary: 'Create a new blog post with image upload' })
+  @ApiOperation({ summary: 'Create a new blog with image upload' })
   @ApiConsumes('multipart/form-data')
-  @ApiResponse({ status: 201, description: 'Blog post created successfully' })
+  @ApiResponse({ status: 201, description: 'Blog created successfully' })
   @ApiResponse({ status: 400, description: 'Bad request' })
-  create(@Req() req, @Body() createBlogDto: CreateBlogDto) {
-    // Apply the upload middleware before processing
+  create(@Req() req): Promise<any> {
     return new Promise((resolve, reject) => {
+      // Áp dụng middleware upload cho request hiện tại
       uploadR2(req, req.res, async (err) => {
         if (err) {
+          console.error('Upload middleware error:', err);
           return reject(err);
         }
         
         try {
-          // If file was uploaded, set the coverImage field
-          if (req.file && 'location' in req.file) {
-            createBlogDto.coverImage = req.file.location;
+          // Log dữ liệu nhận được để debug
+          console.log('Form data received:', req.body);
+          
+          // Tạo object blog mới từ form data
+          const blogData: any = {};
+          
+          // Gán các trường dữ liệu từ form
+          blogData.title = req.body.title;
+          blogData.content = req.body.content;
+          blogData.excerpt = req.body.excerpt;
+          blogData.categoryId = req.body.categoryId;
+          blogData.slug = req.body.slug;
+          
+          // Nếu có file upload, gán đường dẫn ảnh
+          if (req.file && req.file.location) {
+            blogData.coverImage = req.file.location;
           }
           
-          // Parse any JSON string fields that might have been sent as form data
-          if (req.body) {
-            Object.keys(req.body).forEach(key => {
-              try {
-                if (typeof req.body[key] === 'string' && req.body[key].startsWith('{')) {
-                  const parsed = JSON.parse(req.body[key]);
-                  createBlogDto[key] = parsed;
-                }
-              } catch (e) {
-                // Not JSON, keep as is
-              }
+          // Log dữ liệu sau khi xử lý
+          console.log('Blog data after processing:', blogData);
+          
+          // Kiểm tra dữ liệu thủ công
+          if (!blogData.title) {
+            return reject({
+              message: 'Title is required',
+              statusCode: 400
             });
           }
           
-          const result = await this.blogsService.create(createBlogDto);
-          resolve(result);
+          if (!blogData.categoryId) {
+            return reject({
+              message: 'Category ID is required',
+              statusCode: 400
+            });
+          }
+          
+          // Tạo blog trong database
+          const created = await this.blogsService.create(blogData);
+          console.log('Blog created successfully:', created);
+          resolve(created);
         } catch (error) {
+          console.error('Error creating blog:', error);
           reject(error);
         }
       });

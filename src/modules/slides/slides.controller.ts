@@ -36,37 +36,66 @@ export class SlidesController {
   @ApiConsumes('multipart/form-data')
   @ApiResponse({ status: 201, description: 'Slide created successfully' })
   @ApiResponse({ status: 400, description: 'Bad request' })
-  create(@Req() req, @Body() createSlideDto: CreateSlideDto) {
-    // Apply the upload middleware before processing
+  create(@Req() req): Promise<any> {
     return new Promise((resolve, reject) => {
+      // Áp dụng middleware upload cho request hiện tại
       uploadR2(req, req.res, async (err) => {
         if (err) {
+          console.error('Upload middleware error:', err);
           return reject(err);
         }
         
         try {
-          // If file was uploaded, set the image field
-          if (req.file && 'location' in req.file) {
-            createSlideDto.image = req.file.location;
+          // Log dữ liệu nhận được để debug
+          console.log('Form data received:', req.body);
+          
+          // Tạo object slide mới từ form data
+          const slideData: any = {};
+          
+          // Gán các trường dữ liệu từ form
+          slideData.title = req.body.title;
+          slideData.description = req.body.description;
+          slideData.role = req.body.role;
+          
+          // Xử lý trường số
+          slideData.order = req.body.order ? parseInt(req.body.order) : undefined;
+          
+          // Nếu có file upload, gán đường dẫn ảnh
+          if (req.file && req.file.location) {
+            slideData.image = req.file.location;
           }
           
-          // Parse any JSON string fields that might have been sent as form data
-          if (req.body) {
-            Object.keys(req.body).forEach(key => {
-              try {
-                if (typeof req.body[key] === 'string' && req.body[key].startsWith('{')) {
-                  const parsed = JSON.parse(req.body[key]);
-                  createSlideDto[key] = parsed;
-                }
-              } catch (e) {
-                // Not JSON, keep as is
-              }
+          // Log dữ liệu sau khi xử lý
+          console.log('Slide data after processing:', slideData);
+          
+          // Kiểm tra dữ liệu thủ công
+          if (!slideData.title) {
+            return reject({
+              message: 'Title is required',
+              statusCode: 400
             });
           }
           
-          const result = await this.slidesService.create(createSlideDto);
-          resolve(result);
+          if (!slideData.image) {
+            return reject({
+              message: 'Image is required',
+              statusCode: 400
+            });
+          }
+          
+          if (!slideData.role) {
+            return reject({
+              message: 'Role is required',
+              statusCode: 400
+            });
+          }
+          
+          // Tạo slide trong database
+          const created = await this.slidesService.create(slideData);
+          console.log('Slide created successfully:', created);
+          resolve(created);
         } catch (error) {
+          console.error('Error creating slide:', error);
           reject(error);
         }
       });

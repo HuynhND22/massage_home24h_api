@@ -1,58 +1,55 @@
-import { ApiProperty } from '@nestjs/swagger';
+import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
 import { Type } from 'class-transformer';
-import { IsEnum, IsInt, IsOptional, IsString, Min } from 'class-validator';
+import { IsBoolean, IsEnum, IsInt, IsOptional, IsString, Min } from 'class-validator';
 
 export enum SortOrder {
   ASC = 'ASC',
   DESC = 'DESC',
 }
 
+export enum CategoryType {
+  BLOG = 'blog',
+  SERVICE = 'service',
+}
+
 export class PaginationDto {
-  @ApiProperty({
-    description: 'Page number (starts from 1)',
-    default: 1,
-    required: false,
-  })
+  @ApiPropertyOptional({ description: 'Page number (starts from 1)', default: 1 })
   @IsOptional()
   @Type(() => Number)
   @IsInt()
   @Min(1)
   page?: number = 1;
 
-  @ApiProperty({
-    description: 'Number of items per page',
-    default: 10,
-    required: false,
-  })
+  @ApiPropertyOptional({ description: 'Items per page', default: 10 })
   @IsOptional()
   @Type(() => Number)
   @IsInt()
   @Min(1)
   limit?: number = 10;
 
-  @ApiProperty({
-    description: 'Search term',
-    required: false,
-  })
+  @ApiPropertyOptional({ description: 'Search term' })
   @IsOptional()
   @IsString()
   search?: string;
 
-  @ApiProperty({
-    description: 'Field to sort by',
-    required: false,
-  })
+  @ApiPropertyOptional({ description: 'Sort field', default: 'createdAt' })
   @IsOptional()
   @IsString()
   sortBy?: string = 'createdAt';
 
-  @ApiProperty({
-    description: 'Sort order',
-    enum: SortOrder,
-    default: SortOrder.DESC,
-    required: false,
-  })
+  @ApiPropertyOptional({ description: 'Sort order', enum: SortOrder, default: SortOrder.DESC })
   @IsOptional()
   @IsEnum(SortOrder)
   sortOrder?: SortOrder = SortOrder.DESC;
+
+  @ApiPropertyOptional({ description: 'Category type', enum: CategoryType })
+  @IsOptional()
+  @IsEnum(CategoryType)
+  type?: CategoryType;
+
+  @ApiPropertyOptional({ description: 'Include deleted records', default: false })
+  @IsOptional()
+  @Type(() => Boolean)
+  @IsBoolean()
+  includeDeleted?: boolean = false;
 }

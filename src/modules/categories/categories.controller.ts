@@ -42,14 +42,14 @@ export class CategoriesController {
   @ApiResponse({ status: 200, description: 'Return all categories' })
   findAll(
     @Query() paginationDto: PaginationDto,
-    @Query('type') type?: CategoryType,
-    @Query('includeDeleted') includeDeleted?: boolean,
   ) {
+    const { includeDeleted, ...paginationParams } = paginationDto;
     return this.categoriesService.findAll(
-      { ...paginationDto, type },
+      paginationParams,
       includeDeleted,
     );
   }
+  
 
   @Get(':id')
   @Public()

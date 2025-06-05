@@ -1,30 +1,34 @@
-import { Column, Entity } from 'typeorm';
-import { BaseEntity } from '../../../common/entities/base.entity';
+import { Column, Entity, OneToMany, PrimaryGeneratedColumn } from 'typeorm';
+import { SlideTranslation } from './slide-translation.entity';
 
 export enum SlideRole {
   HOME = 'home',
-  ABOUT = 'about',
-  SERVICE = 'service',
+  BLOG = 'blog'
 }
 
 @Entity('slides')
-export class Slide extends BaseEntity {
-  @Column()
-  title: string;
+export class Slide {
+  @PrimaryGeneratedColumn('uuid')
+  id: string;
 
-  @Column({ nullable: true })
-  description: string;
+  @Column({ type: 'timestamp', default: () => 'CURRENT_TIMESTAMP' })
+  createdAt: Date;
 
-  @Column()
+  @Column({ type: 'timestamp', default: () => 'CURRENT_TIMESTAMP' })
+  updatedAt: Date;
+
+  @Column({ type: 'timestamp', nullable: true })
+  deletedAt: Date;
+
+  @Column({ type: 'varchar' })
   image: string;
 
-  @Column({
-    type: 'enum',
-    enum: SlideRole,
-    default: SlideRole.HOME,
-  })
+  @Column({ type: 'enum', enum: SlideRole })
   role: SlideRole;
 
-  @Column({ default: 0 })
+  @Column({ type: 'int' })
   order: number;
+
+  @OneToMany(() => SlideTranslation, translation => translation.slide)
+  translations: SlideTranslation[];
 }

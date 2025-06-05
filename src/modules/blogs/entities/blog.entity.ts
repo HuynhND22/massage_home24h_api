@@ -23,7 +23,7 @@ export class Blog extends BaseEntity {
   @Column()
   categoryId: string;
 
-  @ManyToOne(() => Category, (category) => category.blogs)
+  @ManyToOne(() => Category)
   @JoinColumn({ name: 'categoryId' })
   category: Category;
 

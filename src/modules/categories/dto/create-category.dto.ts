@@ -1,6 +1,8 @@
 import { ApiProperty } from '@nestjs/swagger';
-import { IsEnum, IsNotEmpty, IsOptional, IsString } from 'class-validator';
+import { IsEnum, IsNotEmpty, IsOptional, IsString, ValidateNested } from 'class-validator';
+import { Type } from 'class-transformer';
 import { CategoryType } from '../entities/category.entity';
+import { CreateCategoryTranslationDto } from './category-translation.dto';
 
 export class CreateCategoryDto {
   @ApiProperty({
@@ -37,4 +39,12 @@ export class CreateCategoryDto {
   @IsString()
   @IsOptional()
   coverImage?: string;
+
+  @ApiProperty({
+    type: [CreateCategoryTranslationDto],
+    description: 'Translations for the category',
+  })
+  @ValidateNested({ each: true })
+  @Type(() => CreateCategoryTranslationDto)
+  translations: CreateCategoryTranslationDto[];
 }

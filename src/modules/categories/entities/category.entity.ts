@@ -1,33 +1,31 @@
-import { Column, Entity, OneToMany } from 'typeorm';
-import { BaseEntity } from '../../../common/entities/base.entity';
-import { Blog } from '../../blogs/entities/blog.entity';
-import { Service } from '../../services/entities/service.entity';
+import { Column, Entity, OneToMany, PrimaryGeneratedColumn } from 'typeorm';
+import { CategoryTranslation } from './category-translation.entity';
 
 export enum CategoryType {
-  BLOG = 'blog',
   SERVICE = 'service',
+  BLOG = 'blog'
 }
 
 @Entity('categories')
-export class Category extends BaseEntity {
-  @Column()
-  name: string;
+export class Category {
+  @PrimaryGeneratedColumn('uuid')
+  id: string;
 
-  @Column({ nullable: true })
-  description: string;
+  @Column({ type: 'timestamp', default: () => 'CURRENT_TIMESTAMP' })
+  createdAt: Date;
 
-  @Column({
-    type: 'enum',
-    enum: CategoryType,
-  })
+  @Column({ type: 'timestamp', default: () => 'CURRENT_TIMESTAMP' })
+  updatedAt: Date;
+
+  @Column({ type: 'timestamp', nullable: true })
+  deletedAt: Date;
+
+  @Column({ type: 'enum', enum: CategoryType })
   type: CategoryType;
 
-  @Column({ nullable: true })
+  @Column({ type: 'varchar', nullable: true })
   coverImage: string;
 
-  @OneToMany(() => Blog, (blog) => blog.category)
-  blogs: Blog[];
-
-  @OneToMany(() => Service, (service) => service.category)
-  services: Service[];
+  @OneToMany(() => CategoryTranslation, translation => translation.category)
+  translations: CategoryTranslation[];
 }

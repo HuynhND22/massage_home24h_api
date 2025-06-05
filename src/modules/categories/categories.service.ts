@@ -2,8 +2,11 @@ import { Injectable, NotFoundException } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import { Category, CategoryType } from './entities/category.entity';
+import { CategoryTranslation } from './entities/category-translation.entity';
 import { CreateCategoryDto } from './dto/create-category.dto';
 import { UpdateCategoryDto } from './dto/update-category.dto';
+import { CreateCategoryTranslationDto } from './dto/category-translation.dto';
+import { UpdateCategoryTranslationDto } from './dto/category-translation.dto';
 import { PaginationParams, PaginatedResponse } from '../../common/interfaces/pagination.interface';
 
 @Injectable()
@@ -11,10 +14,20 @@ export class CategoriesService {
   constructor(
     @InjectRepository(Category)
     private categoriesRepository: Repository<Category>,
+    @InjectRepository(CategoryTranslation)
+    private categoryTranslationsRepository: Repository<CategoryTranslation>,
   ) {}
 
   async create(createCategoryDto: CreateCategoryDto): Promise<Category> {
-    const category = this.categoriesRepository.create(createCategoryDto);
+    const { translations, ...categoryData } = createCategoryDto;
+    const category = this.categoriesRepository.create(categoryData);
+    
+    if (translations) {
+      category.translations = translations.map(translation => 
+        this.categoryTranslationsRepository.create(translation)
+      );
+    }
+    
     return this.categoriesRepository.save(category);
   }
 
@@ -24,7 +37,8 @@ export class CategoriesService {
   ): Promise<PaginatedResponse<Category>> {
     const { page = 1, limit = 10, search, sortBy = 'createdAt', sortOrder = 'DESC', type } = params;
     
-    const queryBuilder = this.categoriesRepository.createQueryBuilder('category');
+    const queryBuilder = this.categoriesRepository.createQueryBuilder('category')
+      .leftJoinAndSelect('category.translations', 'translations');
     
     if (includeDeleted) {
       queryBuilder.withDeleted();
@@ -36,7 +50,7 @@ export class CategoriesService {
     
     if (search) {
       queryBuilder.andWhere(
-        '(category.name ILIKE :search OR category.description ILIKE :search)',
+        '(translations.name ILIKE :search OR translations.description ILIKE :search)',
         { search: `%${search}%` },
       );
     }
@@ -65,6 +79,7 @@ export class CategoriesService {
   async findOne(id: string, includeDeleted: boolean = false): Promise<Category> {
     const category = await this.categoriesRepository.findOne({
       where: { id },
+      relations: ['translations'],
       withDeleted: includeDeleted,
     });
 
@@ -76,9 +91,24 @@ export class CategoriesService {
   }
 
   async update(id: string, updateCategoryDto: UpdateCategoryDto): Promise<Category> {
+    const { translations, ...categoryData } = updateCategoryDto;
     const category = await this.findOne(id);
     
-    Object.assign(category, updateCategoryDto);
+    Object.assign(category, categoryData);
+    
+    if (translations) {
+      // Remove existing translations
+      await this.categoryTranslationsRepository.delete({ categoryId: id });
+      
+      // Create new translations
+      category.translations = translations.map(translation => 
+        this.categoryTranslationsRepository.create({
+          ...translation,
+          categoryId: id,
+        })
+      );
+    }
+    
     return this.categoriesRepository.save(category);
   }
 

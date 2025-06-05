@@ -1,6 +1,8 @@
 import { ApiProperty } from '@nestjs/swagger';
-import { IsEnum, IsNotEmpty, IsNumber, IsOptional, IsString, Min } from 'class-validator';
+import { IsEnum, IsNotEmpty, IsNumber, IsOptional, IsString, ValidateNested } from 'class-validator';
+import { Type } from 'class-transformer';
 import { SlideRole } from '../entities/slide.entity';
+import { CreateSlideTranslationDto } from './slide-translation.dto';
 
 export class CreateSlideDto {
   @ApiProperty({
@@ -43,7 +45,14 @@ export class CreateSlideDto {
     required: false,
   })
   @IsNumber()
-  @Min(0)
   @IsOptional()
   order?: number;
+
+  @ApiProperty({
+    type: [CreateSlideTranslationDto],
+    description: 'Translations for the slide',
+  })
+  @ValidateNested({ each: true })
+  @Type(() => CreateSlideTranslationDto)
+  translations: CreateSlideTranslationDto[];
 }

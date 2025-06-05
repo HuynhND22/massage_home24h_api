@@ -2,8 +2,11 @@ import { Injectable, NotFoundException } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import { Service } from './entities/service.entity';
+import { ServiceTranslation } from './entities/service-translation.entity';
 import { CreateServiceDto } from './dto/create-service.dto';
 import { UpdateServiceDto } from './dto/update-service.dto';
+import { CreateServiceTranslationDto } from './dto/service-translation.dto';
+import { UpdateServiceTranslationDto } from './dto/service-translation.dto';
 import { PaginationParams, PaginatedResponse } from '../../common/interfaces/pagination.interface';
 
 @Injectable()
@@ -11,10 +14,20 @@ export class ServicesService {
   constructor(
     @InjectRepository(Service)
     private servicesRepository: Repository<Service>,
+    @InjectRepository(ServiceTranslation)
+    private serviceTranslationsRepository: Repository<ServiceTranslation>,
   ) {}
 
   async create(createServiceDto: CreateServiceDto): Promise<Service> {
-    const service = this.servicesRepository.create(createServiceDto);
+    const { translations, ...serviceData } = createServiceDto;
+    const service = this.servicesRepository.create(serviceData);
+    
+    if (translations) {
+      service.translations = translations.map(translation => 
+        this.serviceTranslationsRepository.create(translation)
+      );
+    }
+    
     return this.servicesRepository.save(service);
   }
 
@@ -22,17 +35,11 @@ export class ServicesService {
     params: PaginationParams & { categoryId?: string },
     includeDeleted: boolean = false,
   ): Promise<PaginatedResponse<Service>> {
-    const { 
-      page = 1, 
-      limit = 10, 
-      search, 
-      sortBy = 'createdAt', 
-      sortOrder = 'DESC',
-      categoryId,
-    } = params;
+    const { page = 1, limit = 20, search, sortBy = 'createdAt', sortOrder = 'DESC', categoryId } = params;
     
     const queryBuilder = this.servicesRepository.createQueryBuilder('service')
-      .leftJoinAndSelect('service.category', 'category');
+      .leftJoinAndSelect('service.category', 'category')
+      .leftJoinAndSelect('service.translations', 'translations');
     
     if (includeDeleted) {
       queryBuilder.withDeleted();
@@ -44,7 +51,7 @@ export class ServicesService {
     
     if (search) {
       queryBuilder.andWhere(
-        '(service.name ILIKE :search OR service.description ILIKE :search)',
+        '(translations.name ILIKE :search OR translations.description ILIKE :search)',
         { search: `%${search}%` },
       );
     }
@@ -73,7 +80,7 @@ export class ServicesService {
   async findOne(id: string, includeDeleted: boolean = false): Promise<Service> {
     const service = await this.servicesRepository.findOne({
       where: { id },
-      relations: ['category'],
+      relations: ['category', 'translations'],
       withDeleted: includeDeleted,
     });
 
@@ -85,9 +92,24 @@ export class ServicesService {
   }
 
   async update(id: string, updateServiceDto: UpdateServiceDto): Promise<Service> {
+    const { translations, ...serviceData } = updateServiceDto;
     const service = await this.findOne(id);
     
-    Object.assign(service, updateServiceDto);
+    Object.assign(service, serviceData);
+    
+    if (translations) {
+      // Remove existing translations
+      await this.serviceTranslationsRepository.delete({ serviceId: id });
+      
+      // Create new translations
+      service.translations = translations.map(translation => 
+        this.serviceTranslationsRepository.create({
+          ...translation,
+          serviceId: id,
+        })
+      );
+    }
+    
     return this.servicesRepository.save(service);
   }
 

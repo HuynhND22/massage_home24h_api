@@ -1,31 +1,39 @@
-import { Column, Entity, JoinColumn, ManyToOne } from 'typeorm';
-import { BaseEntity } from '../../../common/entities/base.entity';
+import { Column, Entity, ManyToOne, OneToMany, PrimaryGeneratedColumn } from 'typeorm';
 import { Category } from '../../categories/entities/category.entity';
+import { ServiceTranslation } from './service-translation.entity';
 
 @Entity('services')
-export class Service extends BaseEntity {
-  @Column()
-  name: string;
+export class Service {
+  @PrimaryGeneratedColumn('uuid')
+  id: string;
 
-  @Column({ nullable: true })
-  description: string;
+  @Column({ type: 'timestamp', default: () => 'CURRENT_TIMESTAMP' })
+  createdAt: Date;
 
-  @Column()
-  duration: number; // in minutes
+  @Column({ type: 'timestamp', default: () => 'CURRENT_TIMESTAMP' })
+  updatedAt: Date;
 
-  @Column({ type: 'decimal', precision: 10, scale: 2 })
+  @Column({ type: 'timestamp', nullable: true })
+  deletedAt: Date;
+
+  @Column({ type: 'int' })
+  duration: number;
+
+  @Column({ type: 'decimal', precision: 10, scale: 2, default: 0 })
   price: number;
 
   @Column({ type: 'decimal', precision: 10, scale: 2, default: 0 })
   discount: number;
 
-  @Column({ nullable: true })
+  @Column({ type: 'varchar', nullable: true })
   coverImage: string;
 
-  @Column()
+  @Column({ type: 'uuid' })
   categoryId: string;
 
-  @ManyToOne(() => Category, (category) => category.services)
-  @JoinColumn({ name: 'categoryId' })
+  @ManyToOne(() => Category)
   category: Category;
+
+  @OneToMany(() => ServiceTranslation, translation => translation.service)
+  translations: ServiceTranslation[];
 }

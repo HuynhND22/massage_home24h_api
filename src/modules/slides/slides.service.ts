@@ -2,8 +2,11 @@ import { Injectable, NotFoundException } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import { Slide, SlideRole } from './entities/slide.entity';
+import { SlideTranslation } from './entities/slide-translation.entity';
 import { CreateSlideDto } from './dto/create-slide.dto';
 import { UpdateSlideDto } from './dto/update-slide.dto';
+import { CreateSlideTranslationDto } from './dto/slide-translation.dto';
+import { UpdateSlideTranslationDto } from './dto/slide-translation.dto';
 import { PaginationParams, PaginatedResponse } from '../../common/interfaces/pagination.interface';
 
 @Injectable()
@@ -11,10 +14,20 @@ export class SlidesService {
   constructor(
     @InjectRepository(Slide)
     private slidesRepository: Repository<Slide>,
+    @InjectRepository(SlideTranslation)
+    private slideTranslationsRepository: Repository<SlideTranslation>,
   ) {}
 
   async create(createSlideDto: CreateSlideDto): Promise<Slide> {
-    const slide = this.slidesRepository.create(createSlideDto);
+    const { translations, ...slideData } = createSlideDto;
+    const slide = this.slidesRepository.create(slideData);
+    
+    if (translations) {
+      slide.translations = translations.map(translation => 
+        this.slideTranslationsRepository.create(translation)
+      );
+    }
+    
     return this.slidesRepository.save(slide);
   }
 
@@ -22,16 +35,10 @@ export class SlidesService {
     params: PaginationParams & { role?: SlideRole },
     includeDeleted: boolean = false,
   ): Promise<PaginatedResponse<Slide>> {
-    const { 
-      page = 1, 
-      limit = 10, 
-      search, 
-      sortBy = 'order', 
-      sortOrder = 'ASC',
-      role,
-    } = params;
+    const { page = 1, limit = 10, search, sortBy = 'order', sortOrder = 'ASC', role } = params;
     
-    const queryBuilder = this.slidesRepository.createQueryBuilder('slide');
+    const queryBuilder = this.slidesRepository.createQueryBuilder('slide')
+      .leftJoinAndSelect('slide.translations', 'translations');
     
     if (includeDeleted) {
       queryBuilder.withDeleted();
@@ -43,7 +50,7 @@ export class SlidesService {
     
     if (search) {
       queryBuilder.andWhere(
-        '(slide.title ILIKE :search OR slide.description ILIKE :search)',
+        '(translations.title ILIKE :search OR translations.description ILIKE :search)',
         { search: `%${search}%` },
       );
     }
@@ -72,6 +79,7 @@ export class SlidesService {
   async findOne(id: string, includeDeleted: boolean = false): Promise<Slide> {
     const slide = await this.slidesRepository.findOne({
       where: { id },
+      relations: ['translations'],
       withDeleted: includeDeleted,
     });
 
@@ -83,9 +91,24 @@ export class SlidesService {
   }
 
   async update(id: string, updateSlideDto: UpdateSlideDto): Promise<Slide> {
+    const { translations, ...slideData } = updateSlideDto;
     const slide = await this.findOne(id);
     
-    Object.assign(slide, updateSlideDto);
+    Object.assign(slide, slideData);
+    
+    if (translations) {
+      // Remove existing translations
+      await this.slideTranslationsRepository.delete({ slideId: id });
+      
+      // Create new translations
+      slide.translations = translations.map(translation => 
+        this.slideTranslationsRepository.create({
+          ...translation,
+          slideId: id,
+        })
+      );
+    }
+    
     return this.slidesRepository.save(slide);
   }
 

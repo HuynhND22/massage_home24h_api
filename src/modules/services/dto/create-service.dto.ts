@@ -1,5 +1,7 @@
 import { ApiProperty } from '@nestjs/swagger';
-import { IsNotEmpty, IsNumber, IsOptional, IsPositive, IsString, IsUUID, Max, Min } from 'class-validator';
+import { IsNotEmpty, IsNumber, IsOptional, IsPositive, IsString, IsUUID, Max, Min, ValidateNested } from 'class-validator';
+import { Type } from 'class-transformer';
+import { CreateServiceTranslationDto } from './service-translation.dto';
 
 export class CreateServiceDto {
   @ApiProperty({
@@ -24,24 +26,23 @@ export class CreateServiceDto {
     description: 'Duration of the service in minutes',
   })
   @IsNumber()
-  @IsPositive()
+  @IsNotEmpty()
   duration: number;
 
   @ApiProperty({
-    example: 50.99,
+    example: 100.00,
     description: 'Price of the service',
   })
   @IsNumber()
-  @IsPositive()
+  @IsNotEmpty()
   price: number;
 
   @ApiProperty({
-    example: 5.99,
+    example: 0,
     description: 'Discount amount for the service',
     required: false,
   })
   @IsNumber()
-  @Min(0)
   @IsOptional()
   discount?: number;
 
@@ -61,4 +62,12 @@ export class CreateServiceDto {
   @IsUUID()
   @IsNotEmpty()
   categoryId: string;
+
+  @ApiProperty({
+    type: [CreateServiceTranslationDto],
+    description: 'Translations for the service',
+  })
+  @ValidateNested({ each: true })
+  @Type(() => CreateServiceTranslationDto)
+  translations: CreateServiceTranslationDto[];
 }

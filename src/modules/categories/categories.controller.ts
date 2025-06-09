@@ -59,7 +59,10 @@ export class CategoriesController {
   @ApiResponse({ status: 200, description: 'Return all soft-deleted categories' })
   findDeleted(@Query() paginationDto: PaginationDto) {
     const { page, limit } = paginationDto;
-    return this.categoriesService.findDeleted(page, limit);
+    return this.categoriesService.findAll(
+      { page, limit },
+      true
+    );
   }
 
   @Get(':id')

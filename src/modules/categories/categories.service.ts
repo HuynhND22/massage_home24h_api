@@ -19,16 +19,28 @@ export class CategoriesService {
   ) {}
 
   async create(createCategoryDto: CreateCategoryDto): Promise<Category> {
-    const { translations, ...categoryData } = createCategoryDto;
-    const category = this.categoriesRepository.create(categoryData);
+    const { translations, name, description, ...categoryData } = createCategoryDto;
     
-    if (translations) {
-      category.translations = translations.map(translation => 
-        this.categoryTranslationsRepository.create(translation)
-      );
-    }
-    
-    return this.categoriesRepository.save(category);
+    return this.categoriesRepository.manager.transaction(async transactionalEntityManager => {
+      // Create and save the category
+      const category = this.categoriesRepository.create(categoryData);
+      const savedCategory = await transactionalEntityManager.save(Category, category);
+      
+      if (translations && translations.length > 0) {
+        // Create and save translations
+        const categoryTranslations = translations.map(translation => 
+          this.categoryTranslationsRepository.create({
+            ...translation,
+            categoryId: savedCategory.id
+          })
+        );
+        
+        await transactionalEntityManager.save(CategoryTranslation, categoryTranslations);
+        savedCategory.translations = categoryTranslations;
+      }
+      
+      return savedCategory;
+    });
   }
 
   async findAll(

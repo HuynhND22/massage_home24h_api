@@ -20,15 +20,27 @@ export class ServicesService {
 
   async create(createServiceDto: CreateServiceDto): Promise<Service> {
     const { translations, ...serviceData } = createServiceDto;
-    const service = this.servicesRepository.create(serviceData);
     
-    if (translations) {
-      service.translations = translations.map(translation => 
-        this.serviceTranslationsRepository.create(translation)
-      );
-    }
-    
-    return this.servicesRepository.save(service);
+    return this.servicesRepository.manager.transaction(async transactionalEntityManager => {
+      // Create and save the service
+      const service = this.servicesRepository.create(serviceData);
+      const savedService = await transactionalEntityManager.save(Service, service);
+      
+      if (translations && translations.length > 0) {
+        // Create and save translations
+        const serviceTranslations = translations.map(translation => 
+          this.serviceTranslationsRepository.create({
+            ...translation,
+            serviceId: savedService.id
+          })
+        );
+        
+        await transactionalEntityManager.save(ServiceTranslation, serviceTranslations);
+        savedService.translations = serviceTranslations;
+      }
+      
+      return savedService;
+    });
   }
 
   async findAll(

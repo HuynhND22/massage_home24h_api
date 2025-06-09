@@ -20,15 +20,27 @@ export class SlidesService {
 
   async create(createSlideDto: CreateSlideDto): Promise<Slide> {
     const { translations, ...slideData } = createSlideDto;
-    const slide = this.slidesRepository.create(slideData);
     
-    if (translations) {
-      slide.translations = translations.map(translation => 
-        this.slideTranslationsRepository.create(translation)
-      );
-    }
-    
-    return this.slidesRepository.save(slide);
+    return this.slidesRepository.manager.transaction(async transactionalEntityManager => {
+      // Create and save the slide
+      const slide = this.slidesRepository.create(slideData);
+      const savedSlide = await transactionalEntityManager.save(Slide, slide);
+      
+      if (translations && translations.length > 0) {
+        // Create and save translations
+        const slideTranslations = translations.map(translation => 
+          this.slideTranslationsRepository.create({
+            ...translation,
+            slideId: savedSlide.id
+          })
+        );
+        
+        await transactionalEntityManager.save(SlideTranslation, slideTranslations);
+        savedSlide.translations = slideTranslations;
+      }
+      
+      return savedSlide;
+    });
   }
 
   async findAll(

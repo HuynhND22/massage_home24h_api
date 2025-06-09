@@ -1,4 +1,4 @@
-import { Column, Entity, OneToMany, PrimaryGeneratedColumn } from 'typeorm';
+import { Column, Entity, OneToMany, PrimaryGeneratedColumn, DeleteDateColumn } from 'typeorm';
 import { CategoryTranslation } from './category-translation.entity';
 
 export enum CategoryType {
@@ -17,7 +17,7 @@ export class Category {
   @Column({ type: 'timestamp', default: () => 'CURRENT_TIMESTAMP' })
   updatedAt: Date;
 
-  @Column({ type: 'timestamp', nullable: true })
+  @DeleteDateColumn()
   deletedAt: Date;
 
   @Column({ type: 'enum', enum: CategoryType })

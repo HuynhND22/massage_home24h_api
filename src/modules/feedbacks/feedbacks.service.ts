@@ -97,8 +97,18 @@ export class FeedbacksService {
   }
 
   async remove(id: string): Promise<void> {
-    const feedback = await this.findOne(id);
-    await this.feedbacksRepository.softDelete(id);
+    try {
+      // Tìm feedback kể cả đã bị soft delete
+      const feedback = await this.findOne(id, true);
+      console.log('Found feedback:', feedback);
+      
+      console.log('Soft deleting feedback:', id);
+      const result = await this.feedbacksRepository.softDelete(id);
+      console.log('Feedback delete result:', result);
+    } catch (error) {
+      console.error('Error in remove method:', error);
+      throw error;
+    }
   }
 
   async restore(id: string): Promise<Feedback> {

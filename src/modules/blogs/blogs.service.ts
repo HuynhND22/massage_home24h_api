@@ -137,8 +137,35 @@ export class BlogsService {
   }
 
   async remove(id: string): Promise<void> {
-    const blog = await this.findOne(id);
-    await this.blogsRepository.softDelete(id);
+    try {
+      // Tìm blog kể cả đã bị soft delete
+      const blog = await this.findOne(id, true);
+      console.log('Found blog:', blog);
+      
+      await this.blogsRepository.manager.transaction(async transactionalEntityManager => {
+        try {
+          // Soft delete translations first
+          console.log('Soft deleting translations for blog:', id);
+          const translationResult = await transactionalEntityManager
+            .getRepository(BlogTranslation)
+            .softDelete({ blogId: id });
+          console.log('Translation delete result:', translationResult);
+          
+          // Then soft delete the blog
+          console.log('Soft deleting blog:', id);
+          const blogResult = await transactionalEntityManager
+            .getRepository(Blog)
+            .softDelete(id);
+          console.log('Blog delete result:', blogResult);
+        } catch (transactionError) {
+          console.error('Error in transaction:', transactionError);
+          throw transactionError;
+        }
+      });
+    } catch (error) {
+      console.error('Error in remove method:', error);
+      throw error;
+    }
   }
 
   async restore(id: string): Promise<Blog> {

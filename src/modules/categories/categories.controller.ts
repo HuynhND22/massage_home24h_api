@@ -32,6 +32,7 @@ export class CategoriesController {
   @Roles(UserRole.ADMIN)
   @ApiOperation({ summary: 'Create a new category' })
   @ApiResponse({ status: 201, description: 'Category created successfully' })
+  @ApiResponse({ status: 400, description: 'Bad request' })
   create(@Body() createCategoryDto: CreateCategoryDto) {
     return this.categoriesService.create(createCategoryDto);
   }
@@ -49,7 +50,17 @@ export class CategoriesController {
       includeDeleted,
     );
   }
-  
+
+  @Get('deleted')
+  @ApiBearerAuth()
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles(UserRole.ADMIN)
+  @ApiOperation({ summary: 'Get all soft-deleted categories' })
+  @ApiResponse({ status: 200, description: 'Return all soft-deleted categories' })
+  findDeleted(@Query() paginationDto: PaginationDto) {
+    const { page, limit } = paginationDto;
+    return this.categoriesService.findDeleted(page, limit);
+  }
 
   @Get(':id')
   @Public()

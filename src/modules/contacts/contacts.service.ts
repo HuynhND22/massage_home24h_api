@@ -85,8 +85,18 @@ export class ContactsService {
   }
 
   async remove(id: string): Promise<void> {
-    const contact = await this.findOne(id);
-    await this.contactsRepository.softDelete(id);
+    try {
+      // Tìm contact kể cả đã bị soft delete
+      const contact = await this.findOne(id, true);
+      console.log('Found contact:', contact);
+      
+      console.log('Soft deleting contact:', id);
+      const result = await this.contactsRepository.softDelete(id);
+      console.log('Contact delete result:', result);
+    } catch (error) {
+      console.error('Error in remove method:', error);
+      throw error;
+    }
   }
 
   async restore(id: string): Promise<Contact> {

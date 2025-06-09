@@ -20,8 +20,7 @@ import { RolesGuard } from '../auth/guards/roles.guard';
 import { Roles } from '../auth/decorators/roles.decorator';
 import { UserRole } from '../users/entities/user.entity';
 import { Public } from '../auth/decorators/public.decorator';
-import { PaginationDto } from '../../common/dto/pagination.dto';
-import { SlideRole } from './entities/slide.entity';
+import { SlidePaginationDto } from './dto/slide-pagination.dto';
 import { FileInterceptor } from '@nestjs/platform-express';
 import { R2StorageService } from '../../common/services/r2-storage.service';
 
@@ -94,14 +93,21 @@ export class SlidesController {
   @ApiOperation({ summary: 'Get all slides' })
   @ApiResponse({ status: 200, description: 'Return all slides' })
   findAll(
-    @Query() paginationDto: PaginationDto,
-    @Query('role') role?: SlideRole,
-    @Query('includeDeleted') includeDeleted?: boolean,
+    @Query() paginationDto: SlidePaginationDto,
   ) {
-    return this.slidesService.findAll(
-      { ...paginationDto, role },
-      includeDeleted,
-    );
+    const { includeDeleted, ...paginationParams } = paginationDto;
+    return this.slidesService.findAll(paginationParams, includeDeleted);
+  }
+
+  @Get('deleted')
+  @ApiBearerAuth()
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles(UserRole.ADMIN)
+  @ApiOperation({ summary: 'Get all soft-deleted slides' })
+  @ApiResponse({ status: 200, description: 'Return all soft-deleted slides' })
+  findDeleted(@Query() paginationDto: SlidePaginationDto) {
+    const { page, limit, role } = paginationDto;
+    return this.slidesService.findDeleted(page, limit, role);
   }
 
   @Get(':id')

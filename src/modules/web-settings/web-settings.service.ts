@@ -52,15 +52,25 @@ export class WebSettingsService {
   }
 
   async remove(id: string): Promise<void> {
-    const webSetting = await this.webSettingsRepository.findOne({
-      where: { id },
-    });
+    try {
+      // Tìm web setting kể cả đã bị soft delete
+      const webSetting = await this.webSettingsRepository.findOne({
+        where: { id },
+        withDeleted: true,
+      });
 
-    if (!webSetting) {
-      throw new NotFoundException(`Web settings with ID ${id} not found`);
+      if (!webSetting) {
+        throw new NotFoundException(`Web settings with ID ${id} not found`);
+      }
+      
+      console.log('Found web setting:', webSetting);
+      console.log('Soft deleting web setting:', id);
+      const result = await this.webSettingsRepository.softDelete(id);
+      console.log('Web setting delete result:', result);
+    } catch (error) {
+      console.error('Error in remove method:', error);
+      throw error;
     }
-    
-    await this.webSettingsRepository.softDelete(id);
   }
 
   async restore(id: string): Promise<WebSetting> {

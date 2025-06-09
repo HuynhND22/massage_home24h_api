@@ -105,8 +105,18 @@ export class UsersService {
   }
 
   async remove(id: string): Promise<void> {
-    const user = await this.findOne(id);
-    await this.usersRepository.softDelete(id);
+    try {
+      // Tìm user kể cả đã bị soft delete
+      const user = await this.findOne(id, true);
+      console.log('Found user:', user);
+      
+      console.log('Soft deleting user:', id);
+      const result = await this.usersRepository.softDelete(id);
+      console.log('User delete result:', result);
+    } catch (error) {
+      console.error('Error in remove method:', error);
+      throw error;
+    }
   }
 
   async restore(id: string): Promise<User> {

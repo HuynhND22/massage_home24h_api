@@ -29,7 +29,7 @@ import { RolesGuard } from '../auth/guards/roles.guard';
 import { Roles } from '../auth/decorators/roles.decorator';
 import { UserRole } from '../users/entities/user.entity';
 import { Public } from '../auth/decorators/public.decorator';
-import { PaginationDto } from '../../common/dto/pagination.dto';
+import { ServicePaginationDto } from './dto/service-pagination.dto';
 
 @ApiTags('services')
 @Controller('services')
@@ -44,51 +44,30 @@ export class ServicesController {
   @ApiOperation({ summary: 'Create a new service' })
   @ApiResponse({ status: 201, description: 'Service created successfully' })
   @ApiResponse({ status: 400, description: 'Bad request' })
-  create(@Body() createServiceDto: CreateServiceDto): Promise<any> {
-    console.log('Create service request received:', createServiceDto);
-    
-    try {
-      // Thực hiện validate thủ công các trường cần thiết
-      const errors: string[] = [];
-      
-      if (!createServiceDto.name) errors.push('Name is required');
-      if (!createServiceDto.duration || createServiceDto.duration <= 0) errors.push('Duration must be a positive number');
-      if (!createServiceDto.price || createServiceDto.price <= 0) errors.push('Price must be a positive number');
-      if (!createServiceDto.categoryId) errors.push('Category ID is required');
-      
-      if (errors.length > 0) {
-        console.log('Validation errors:', errors);
-        throw new HttpException({
-          message: errors,
-          statusCode: HttpStatus.BAD_REQUEST
-        }, HttpStatus.BAD_REQUEST);
-      }
-      
-      // coverImage giờ đây sẽ là URL được frontend gửi lên sau khi upload thành công
-      console.log('Processing service with data:', {
-        name: createServiceDto.name,
-        description: createServiceDto.description?.substring(0, 30) + '...',
-        duration: createServiceDto.duration,
-        price: createServiceDto.price,
-        coverImage: createServiceDto.coverImage || 'No image provided'
-      });
-      
-      // Gọi service để tạo record mới
-      return this.servicesService.create(createServiceDto);
-    } catch (error) {
-      console.error('Error in create service:', error);
-      throw error;
-    }
+  create(@Body() createServiceDto: CreateServiceDto) {
+    return this.servicesService.create(createServiceDto);
   }
 
   @Get()
   @Public()
+  @ApiOperation({ summary: 'Get all services' })
+  @ApiResponse({ status: 200, description: 'Return all services' })
   findAll(
-    @Query() paginationDto: PaginationDto,
-    @Query('categoryId') categoryId?: string,
-    @Query('includeDeleted') includeDeleted?: boolean,
+    @Query() paginationDto: ServicePaginationDto,
   ) {
-    return this.servicesService.findAll({ ...paginationDto, categoryId }, includeDeleted);
+    const { includeDeleted, ...paginationParams } = paginationDto;
+    return this.servicesService.findAll(paginationParams, includeDeleted);
+  }
+
+  @Get('deleted')
+  @ApiBearerAuth()
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles(UserRole.ADMIN)
+  @ApiOperation({ summary: 'Get all soft-deleted services' })
+  @ApiResponse({ status: 200, description: 'Return all soft-deleted services' })
+  findDeleted(@Query() paginationDto: ServicePaginationDto) {
+    const { page, limit, categoryId } = paginationDto;
+    return this.servicesService.findDeleted(page, limit, categoryId);
   }
 
   @Get(':id')
@@ -120,6 +99,9 @@ export class ServicesController {
   @ApiBearerAuth()
   @UseGuards(JwtAuthGuard, RolesGuard)
   @Roles(UserRole.ADMIN)
+  @ApiOperation({ summary: 'Restore a deleted service' })
+  @ApiResponse({ status: 200, description: 'Service restored successfully' })
+  @ApiResponse({ status: 404, description: 'Service not found' })
   restore(@Param('id') id: string) {
     return this.servicesService.restore(id);
   }

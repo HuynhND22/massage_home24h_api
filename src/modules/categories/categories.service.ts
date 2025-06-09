@@ -8,12 +8,13 @@ import { UpdateCategoryDto } from './dto/update-category.dto';
 import { CreateCategoryTranslationDto } from './dto/category-translation.dto';
 import { UpdateCategoryTranslationDto } from './dto/category-translation.dto';
 import { PaginationParams, PaginatedResponse } from '../../common/interfaces/pagination.interface';
+import { PaginationDto } from '../../common/dto/pagination.dto';
 
 @Injectable()
 export class CategoriesService {
   constructor(
     @InjectRepository(Category)
-    private categoriesRepository: Repository<Category>,
+    private readonly categoriesRepository: Repository<Category>,
     @InjectRepository(CategoryTranslation)
     private categoryTranslationsRepository: Repository<CategoryTranslation>,
   ) {}
@@ -44,59 +45,41 @@ export class CategoriesService {
   }
 
   async findAll(
-    params: PaginationParams & { type?: CategoryType },
-    includeDeleted: boolean = false,
-  ): Promise<PaginatedResponse<Category>> {
-    const { page = 1, limit = 10, search, sortBy = 'createdAt', sortOrder = 'DESC', type } = params;
-    
-    const queryBuilder = this.categoriesRepository.createQueryBuilder('category')
-      .leftJoinAndSelect('category.translations', 'translations');
-    
+    paginationDto: PaginationDto,
+    includeDeleted = false,
+  ): Promise<{ data: Category[]; total: number }> {
+    const page = paginationDto.page || 1;
+    const limit = paginationDto.limit || 10;
+
     if (includeDeleted) {
-      queryBuilder.withDeleted();
+      const [data, total] = await this.categoriesRepository.findAndCount({
+        relations: ['translations'],
+        withDeleted: true,
+        skip: (page - 1) * limit,
+        take: limit,
+      });
+      return { data, total };
     }
-    
-    if (type) {
-      queryBuilder.andWhere('category.type = :type', { type });
-    }
-    
-    if (search) {
-      queryBuilder.andWhere(
-        '(translations.name ILIKE :search OR translations.description ILIKE :search)',
-        { search: `%${search}%` },
-      );
-    }
-    
-    const totalItems = await queryBuilder.getCount();
-    
-    queryBuilder
-      .orderBy(`category.${sortBy}`, sortOrder as 'ASC' | 'DESC')
-      .skip((page - 1) * limit)
-      .take(limit);
-    
-    const items = await queryBuilder.getMany();
-    
-    return {
-      items,
-      meta: {
-        totalItems,
-        itemCount: items.length,
-        itemsPerPage: limit,
-        totalPages: Math.ceil(totalItems / limit),
-        currentPage: page,
-      },
-    };
+
+    const [data, total] = await this.categoriesRepository.findAndCount({
+      relations: ['translations'],
+      skip: (page - 1) * limit,
+      take: limit,
+    });
+    return { data, total };
   }
 
-  async findOne(id: string, includeDeleted: boolean = false): Promise<Category> {
-    const category = await this.categoriesRepository.findOne({
+  async findOne(id: string, includeDeleted = false): Promise<Category> {
+    const options = {
       where: { id },
       relations: ['translations'],
       withDeleted: includeDeleted,
-    });
+    };
+
+    const category = await this.categoriesRepository.findOne(options);
 
     if (!category) {
-      throw new NotFoundException(`Category with ID ${id} not found`);
+      throw new NotFoundException(`Category with ID "${id}" not found`);
     }
 
     return category;
@@ -124,9 +107,38 @@ export class CategoriesService {
     return this.categoriesRepository.save(category);
   }
 
-  async remove(id: string): Promise<void> {
-    const category = await this.findOne(id);
-    await this.categoriesRepository.softDelete(id);
+  async remove(id: string): Promise<Category> {
+    try {
+      // Tìm category kể cả đã bị soft delete
+      const category = await this.findOne(id, true);
+      console.log('Found category:', category);
+      
+      await this.categoriesRepository.manager.transaction(async transactionalEntityManager => {
+        try {
+          // Soft delete translations first
+          console.log('Soft deleting translations for category:', id);
+          const translationResult = await transactionalEntityManager
+            .getRepository(CategoryTranslation)
+            .softDelete({ categoryId: id });
+          console.log('Translation delete result:', translationResult);
+          
+          // Then soft delete the category
+          console.log('Soft deleting category:', id);
+          const categoryResult = await transactionalEntityManager
+            .getRepository(Category)
+            .softDelete(id);
+          console.log('Category delete result:', categoryResult);
+        } catch (transactionError) {
+          console.error('Error in transaction:', transactionError);
+          throw transactionError;
+        }
+      });
+
+      return category;
+    } catch (error) {
+      console.error('Error in remove method:', error);
+      throw error;
+    }
   }
 
   async restore(id: string): Promise<Category> {

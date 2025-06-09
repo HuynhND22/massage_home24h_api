@@ -1,23 +1,26 @@
-import { ApiProperty } from '@nestjs/swagger';
-import { IsNotEmpty, IsOptional, IsString } from 'class-validator';
+import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
+import { IsNotEmpty, IsOptional, IsString, IsUUID } from 'class-validator';
 import { BaseTranslationDto, Language } from '../../../common/dto/base-translation.dto';
 
-export class CreateServiceTranslationDto extends BaseTranslationDto {
-  @ApiProperty({
-    example: 'Thai Massage',
-    description: 'Name of the service',
-  })
-  @IsString()
+export class CreateServiceTranslationDto {
+  @ApiPropertyOptional()
+  @IsOptional()
+  @IsUUID()
+  id?: string;
+
+  @ApiProperty()
   @IsNotEmpty()
+  @IsString()
+  language: string;
+
+  @ApiProperty()
+  @IsNotEmpty()
+  @IsString()
   name: string;
 
-  @ApiProperty({
-    example: 'Traditional Thai massage therapy',
-    description: 'Description of the service',
-    required: false,
-  })
-  @IsString()
+  @ApiPropertyOptional()
   @IsOptional()
+  @IsString()
   description?: string;
 }
 

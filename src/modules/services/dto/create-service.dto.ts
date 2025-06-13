@@ -16,10 +16,11 @@ export class CreateServiceDto {
   @ApiProperty({
     example: 'thai-massage',
     description: 'Slug of the service',
+    required: false,
   })
   @IsString()
-  @IsNotEmpty()
-  slug: string;
+  @IsOptional()
+  slug?: string;
 
   @ApiProperty({
     example: 'Traditional Thai massage technique',

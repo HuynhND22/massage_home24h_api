@@ -16,10 +16,11 @@ export class CreateCategoryDto {
   @ApiProperty({
     example: 'massage-services',
     description: 'Slug of the category',
+    required: false,
   })
   @IsString()
-  @IsNotEmpty()
-  slug: string;
+  @IsOptional()
+  slug?: string;
 
   @ApiProperty({
     example: 'All types of massage services offered',

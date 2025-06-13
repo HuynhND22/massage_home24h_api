@@ -14,7 +14,7 @@ export class Blog extends BaseEntity {
   @Column({ type: 'text' })
   content: string;
 
-  @Column({ unique: true })
+  @Column({ unique: true, nullable: true })
   slug: string;
 
   @Column({ nullable: true })

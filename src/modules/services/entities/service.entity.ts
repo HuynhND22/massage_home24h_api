@@ -29,7 +29,7 @@ export class Service {
   @Column({ type: 'varchar', nullable: true })
   coverImage: string;
 
-  @Column({ type: 'varchar', unique: true })
+  @Column({ type: 'varchar', unique: true, nullable: true })
   slug: string;
 
   @Column({ type: 'uuid' })

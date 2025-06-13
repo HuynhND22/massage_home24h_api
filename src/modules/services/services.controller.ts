@@ -105,4 +105,13 @@ export class ServicesController {
   restore(@Param('id') id: string) {
     return this.servicesService.restore(id);
   }
+
+  @Get('details/:slug')
+  @Public()
+  @ApiOperation({ summary: 'Get service details by slug' })
+  @ApiResponse({ status: 200, description: 'Return service details' })
+  @ApiResponse({ status: 404, description: 'Service not found' })
+  async getServiceDetailsBySlug(@Param('slug') slug: string) {
+    return this.servicesService.findBySlug(slug);
+  }
 }

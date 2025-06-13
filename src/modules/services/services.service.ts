@@ -181,4 +181,17 @@ export class ServicesService {
 
     return { data, total };
   }
+
+  async findBySlug(slug: string): Promise<Service> {
+    const service = await this.servicesRepository.findOne({
+      where: { slug },
+      relations: ['translations', 'details', 'category'],
+    });
+
+    if (!service) {
+      throw new NotFoundException(`Service with slug "${slug}" not found`);
+    }
+
+    return service;
+  }
 }

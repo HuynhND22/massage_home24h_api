@@ -24,6 +24,7 @@ import {
 import { ServicesService } from './services.service';
 import { CreateServiceDto } from './dto/create-service.dto';
 import { UpdateServiceDto } from './dto/update-service.dto';
+import { CreateServiceDetailDto } from './dto/create-service-detail.dto';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { RolesGuard } from '../auth/guards/roles.guard';
 import { Roles } from '../auth/decorators/roles.decorator';
@@ -131,5 +132,22 @@ export class ServicesController {
   @ApiResponse({ status: 400, description: 'Service is not deleted' })
   async restore(@Param('id') id: string) {
     return this.servicesService.restore(id);
+  }
+
+  @Post('details')
+  @ApiBearerAuth()
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles(UserRole.ADMIN)
+  @ApiOperation({ summary: 'Create a new service detail' })
+  @ApiResponse({ status: 201, description: 'Service detail created successfully' })
+  @ApiResponse({ status: 204, description: 'Service not found' })
+  @ApiResponse({ status: 400, description: 'Bad request' })
+  async createServiceDetail(@Body() createServiceDetailDto: CreateServiceDetailDto) {
+    const serviceDetail = await this.servicesService.createServiceDetail(createServiceDetailDto);
+    throw new HttpException({
+      statusCode: HttpStatus.CREATED,
+      message: 'Service detail created successfully',
+      data: serviceDetail,
+    }, HttpStatus.CREATED);
   }
 }

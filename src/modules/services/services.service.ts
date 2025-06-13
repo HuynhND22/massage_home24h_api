@@ -9,6 +9,9 @@ import { UpdateServiceDto } from './dto/update-service.dto';
 import { CreateServiceTranslationDto } from './dto/service-translation.dto';
 import { UpdateServiceTranslationDto } from './dto/service-translation.dto';
 import { ServicePaginationDto } from './dto/service-pagination.dto';
+import { CreateServiceDetailDto } from './dto/create-service-detail.dto';
+import { PaginationParams, PaginatedResponse } from '../../common/interfaces/pagination.interface';
+import { PaginationDto } from '../../common/dto/pagination.dto';
 
 @Injectable()
 export class ServicesService {
@@ -206,5 +209,31 @@ export class ServicesService {
     }
 
     return service;
+  }
+
+  async createServiceDetail(createServiceDetailDto: CreateServiceDetailDto): Promise<ServiceDetail> {
+    // Check if service exists
+    const service = await this.servicesRepository.findOne({
+      where: { id: createServiceDetailDto.serviceId },
+    });
+
+    if (!service) {
+      throw new NotFoundException(`Service with ID "${createServiceDetailDto.serviceId}" not found`);
+    }
+
+    // Check if service detail with same language already exists
+    const existingDetail = await this.serviceDetailsRepository.findOne({
+      where: {
+        serviceId: createServiceDetailDto.serviceId,
+        language: createServiceDetailDto.language,
+      },
+    });
+
+    if (existingDetail) {
+      throw new NotFoundException(`Service detail with language "${createServiceDetailDto.language}" already exists for this service`);
+    }
+
+    const serviceDetail = this.serviceDetailsRepository.create(createServiceDetailDto);
+    return this.serviceDetailsRepository.save(serviceDetail);
   }
 }

@@ -10,6 +10,8 @@ import {
   UseGuards,
   UseInterceptors,
   UploadedFile,
+  HttpException,
+  HttpStatus,
 } from '@nestjs/common';
 import { ApiTags, ApiOperation, ApiResponse, ApiBearerAuth, ApiConsumes } from '@nestjs/swagger';
 import { BlogsService } from './blogs.service';
@@ -38,9 +40,9 @@ export class BlogsController {
   @ApiBearerAuth()
   @UseGuards(JwtAuthGuard, RolesGuard)
   @Roles(UserRole.ADMIN)
-  @ApiOperation({ summary: 'Create a new blog with image upload' })
+  @ApiOperation({ summary: 'Create a new blog post' })
   @ApiConsumes('multipart/form-data')
-  @ApiResponse({ status: 201, description: 'Blog created successfully' })
+  @ApiResponse({ status: 201, description: 'Blog post created successfully' })
   @ApiResponse({ status: 400, description: 'Bad request' })
   @UseInterceptors(FileInterceptor('image'))
   async create(
@@ -76,7 +78,11 @@ export class BlogsController {
       // Tạo blog trong database
       const created = await this.blogsService.create(blogData);
       console.log('Blog created successfully:', created);
-      return created;
+      throw new HttpException({
+        statusCode: HttpStatus.CREATED,
+        message: 'Blog post created successfully',
+        data: created,
+      }, HttpStatus.CREATED);
     } catch (error) {
       console.error('Error creating blog:', error);
       throw error;
@@ -87,15 +93,24 @@ export class BlogsController {
   @Public()
   @ApiOperation({ summary: 'Get all blog posts' })
   @ApiResponse({ status: 200, description: 'Return all blog posts' })
-  findAll(
+  @ApiResponse({ status: 204, description: 'No blog posts found' })
+  async findAll(
     @Query() paginationDto: PaginationDto,
-    @Query('categoryId') categoryId?: string,
     @Query('includeDeleted') includeDeleted?: boolean,
   ) {
-    return this.blogsService.findAll(
-      { ...paginationDto, categoryId },
-      includeDeleted,
-    );
+    return this.blogsService.findAll(paginationDto, includeDeleted);
+  }
+
+  @Get('deleted')
+  @ApiBearerAuth()
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles(UserRole.ADMIN)
+  @ApiOperation({ summary: 'Get all soft-deleted blog posts' })
+  @ApiResponse({ status: 200, description: 'Return all soft-deleted blog posts' })
+  @ApiResponse({ status: 204, description: 'No deleted blog posts found' })
+  async findDeleted(@Query() paginationDto: PaginationDto) {
+    const { page, limit } = paginationDto;
+    return this.blogsService.findAll({ page, limit }, true);
   }
 
   @Get('slug/:slug')
@@ -111,8 +126,8 @@ export class BlogsController {
   @Public()
   @ApiOperation({ summary: 'Get a blog post by ID' })
   @ApiResponse({ status: 200, description: 'Return the blog post' })
-  @ApiResponse({ status: 404, description: 'Blog post not found' })
-  findOne(
+  @ApiResponse({ status: 204, description: 'Blog post not found' })
+  async findOne(
     @Param('id') id: string,
     @Query('includeDeleted') includeDeleted?: boolean,
   ) {
@@ -123,10 +138,11 @@ export class BlogsController {
   @ApiBearerAuth()
   @UseGuards(JwtAuthGuard, RolesGuard)
   @Roles(UserRole.ADMIN)
-  @ApiOperation({ summary: 'Update a blog post' })
+  @ApiOperation({ summary: 'Update blog post' })
   @ApiResponse({ status: 200, description: 'Blog post updated successfully' })
-  @ApiResponse({ status: 404, description: 'Blog post not found' })
-  update(@Param('id') id: string, @Body() updateBlogDto: UpdateBlogDto) {
+  @ApiResponse({ status: 204, description: 'Blog post not found' })
+  @ApiResponse({ status: 400, description: 'Bad request' })
+  async update(@Param('id') id: string, @Body() updateBlogDto: UpdateBlogDto) {
     return this.blogsService.update(id, updateBlogDto);
   }
 
@@ -134,10 +150,10 @@ export class BlogsController {
   @ApiBearerAuth()
   @UseGuards(JwtAuthGuard, RolesGuard)
   @Roles(UserRole.ADMIN)
-  @ApiOperation({ summary: 'Delete a blog post' })
+  @ApiOperation({ summary: 'Delete blog post' })
   @ApiResponse({ status: 200, description: 'Blog post deleted successfully' })
-  @ApiResponse({ status: 404, description: 'Blog post not found' })
-  remove(@Param('id') id: string) {
+  @ApiResponse({ status: 204, description: 'Blog post not found' })
+  async remove(@Param('id') id: string) {
     return this.blogsService.remove(id);
   }
 
@@ -147,8 +163,9 @@ export class BlogsController {
   @Roles(UserRole.ADMIN)
   @ApiOperation({ summary: 'Restore a deleted blog post' })
   @ApiResponse({ status: 200, description: 'Blog post restored successfully' })
-  @ApiResponse({ status: 404, description: 'Blog post not found' })
-  restore(@Param('id') id: string) {
+  @ApiResponse({ status: 204, description: 'Blog post not found' })
+  @ApiResponse({ status: 400, description: 'Blog post is not deleted' })
+  async restore(@Param('id') id: string) {
     return this.blogsService.restore(id);
   }
 

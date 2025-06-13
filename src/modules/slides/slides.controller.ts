@@ -10,6 +10,8 @@ import {
   UseGuards,
   UseInterceptors,
   UploadedFile,
+  HttpException,
+  HttpStatus,
 } from '@nestjs/common';
 import { ApiTags, ApiOperation, ApiResponse, ApiBearerAuth, ApiConsumes } from '@nestjs/swagger';
 import { SlidesService } from './slides.service';
@@ -20,7 +22,7 @@ import { RolesGuard } from '../auth/guards/roles.guard';
 import { Roles } from '../auth/decorators/roles.decorator';
 import { UserRole } from '../users/entities/user.entity';
 import { Public } from '../auth/decorators/public.decorator';
-import { SlidePaginationDto } from './dto/slide-pagination.dto';
+import { PaginationDto } from '../../common/dto/pagination.dto';
 import { FileInterceptor } from '@nestjs/platform-express';
 import { R2StorageService } from '../../common/services/r2-storage.service';
 
@@ -29,7 +31,7 @@ import { R2StorageService } from '../../common/services/r2-storage.service';
 export class SlidesController {
   constructor(
     private readonly slidesService: SlidesService,
-    private readonly r2StorageService: R2StorageService
+    private readonly r2StorageService: R2StorageService,
   ) {}
 
   @Post()
@@ -46,42 +48,33 @@ export class SlidesController {
     @UploadedFile() file?: Express.Multer.File
   ) {
     try {
-      // Log dữ liệu nhận được để debug
-      console.log('Form data received:', createSlideDto);
-      
-      // Tạo object slide mới từ form data
-      const slideData: any = { ...createSlideDto };
-      
-      // Xử lý trường số
-      slideData.order = slideData.order ? parseInt(slideData.order.toString()) : undefined;
-      
-      // Nếu có file upload, upload lên R2 và gán đường dẫn ảnh
+      // If file was uploaded, upload to R2 and set the image field
       if (file) {
         const fileUrl = await this.r2StorageService.uploadFile(file, 'slides');
-        slideData.image = fileUrl;
-        console.log('File uploaded to R2:', fileUrl);
+        createSlideDto.image = fileUrl;
+        console.log('Image uploaded to R2:', fileUrl);
       }
       
-      // Log dữ liệu sau khi xử lý
-      console.log('Slide data after processing:', slideData);
-      
-      // Kiểm tra dữ liệu thủ công
-      if (!slideData.title) {
-        throw new Error('Title is required');
+      // Parse any JSON string fields that might have been sent as form data
+      if (createSlideDto) {
+        Object.keys(createSlideDto).forEach(key => {
+          try {
+            if (typeof createSlideDto[key] === 'string' && createSlideDto[key].startsWith('{')) {
+              const parsed = JSON.parse(createSlideDto[key]);
+              createSlideDto[key] = parsed;
+            }
+          } catch (e) {
+            // Not JSON, keep as is
+          }
+        });
       }
       
-      if (!slideData.image) {
-        throw new Error('Image is required');
-      }
-      
-      if (!slideData.role) {
-        throw new Error('Role is required');
-      }
-      
-      // Tạo slide trong database
-      const created = await this.slidesService.create(slideData);
-      console.log('Slide created successfully:', created);
-      return created;
+      const slide = await this.slidesService.create(createSlideDto);
+      throw new HttpException({
+        statusCode: HttpStatus.CREATED,
+        message: 'Slide created successfully',
+        data: slide,
+      }, HttpStatus.CREATED);
     } catch (error) {
       console.error('Error creating slide:', error);
       throw error;
@@ -92,11 +85,12 @@ export class SlidesController {
   @Public()
   @ApiOperation({ summary: 'Get all slides' })
   @ApiResponse({ status: 200, description: 'Return all slides' })
-  findAll(
-    @Query() paginationDto: SlidePaginationDto,
+  @ApiResponse({ status: 204, description: 'No slides found' })
+  async findAll(
+    @Query() paginationDto: PaginationDto,
+    @Query('includeDeleted') includeDeleted?: boolean,
   ) {
-    const { includeDeleted, ...paginationParams } = paginationDto;
-    return this.slidesService.findAll(paginationParams, includeDeleted);
+    return this.slidesService.findAll(paginationDto, includeDeleted);
   }
 
   @Get('deleted')
@@ -105,17 +99,18 @@ export class SlidesController {
   @Roles(UserRole.ADMIN)
   @ApiOperation({ summary: 'Get all soft-deleted slides' })
   @ApiResponse({ status: 200, description: 'Return all soft-deleted slides' })
-  findDeleted(@Query() paginationDto: SlidePaginationDto) {
-    const { page, limit, role } = paginationDto;
-    return this.slidesService.findDeleted(page, limit, role);
+  @ApiResponse({ status: 204, description: 'No deleted slides found' })
+  async findDeleted(@Query() paginationDto: PaginationDto) {
+    const { page, limit } = paginationDto;
+    return this.slidesService.findAll({ page, limit }, true);
   }
 
   @Get(':id')
   @Public()
   @ApiOperation({ summary: 'Get a slide by ID' })
   @ApiResponse({ status: 200, description: 'Return the slide' })
-  @ApiResponse({ status: 404, description: 'Slide not found' })
-  findOne(
+  @ApiResponse({ status: 204, description: 'Slide not found' })
+  async findOne(
     @Param('id') id: string,
     @Query('includeDeleted') includeDeleted?: boolean,
   ) {
@@ -126,10 +121,11 @@ export class SlidesController {
   @ApiBearerAuth()
   @UseGuards(JwtAuthGuard, RolesGuard)
   @Roles(UserRole.ADMIN)
-  @ApiOperation({ summary: 'Update a slide' })
+  @ApiOperation({ summary: 'Update slide' })
   @ApiResponse({ status: 200, description: 'Slide updated successfully' })
-  @ApiResponse({ status: 404, description: 'Slide not found' })
-  update(@Param('id') id: string, @Body() updateSlideDto: UpdateSlideDto) {
+  @ApiResponse({ status: 204, description: 'Slide not found' })
+  @ApiResponse({ status: 400, description: 'Bad request' })
+  async update(@Param('id') id: string, @Body() updateSlideDto: UpdateSlideDto) {
     return this.slidesService.update(id, updateSlideDto);
   }
 
@@ -137,10 +133,10 @@ export class SlidesController {
   @ApiBearerAuth()
   @UseGuards(JwtAuthGuard, RolesGuard)
   @Roles(UserRole.ADMIN)
-  @ApiOperation({ summary: 'Delete a slide' })
+  @ApiOperation({ summary: 'Delete slide' })
   @ApiResponse({ status: 200, description: 'Slide deleted successfully' })
-  @ApiResponse({ status: 404, description: 'Slide not found' })
-  remove(@Param('id') id: string) {
+  @ApiResponse({ status: 204, description: 'Slide not found' })
+  async remove(@Param('id') id: string) {
     return this.slidesService.remove(id);
   }
 
@@ -150,8 +146,9 @@ export class SlidesController {
   @Roles(UserRole.ADMIN)
   @ApiOperation({ summary: 'Restore a deleted slide' })
   @ApiResponse({ status: 200, description: 'Slide restored successfully' })
-  @ApiResponse({ status: 404, description: 'Slide not found' })
-  restore(@Param('id') id: string) {
+  @ApiResponse({ status: 204, description: 'Slide not found' })
+  @ApiResponse({ status: 400, description: 'Slide is not deleted' })
+  async restore(@Param('id') id: string) {
     return this.slidesService.restore(id);
   }
 }

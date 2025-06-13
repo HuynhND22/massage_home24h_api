@@ -44,15 +44,21 @@ export class ServicesController {
   @ApiOperation({ summary: 'Create a new service' })
   @ApiResponse({ status: 201, description: 'Service created successfully' })
   @ApiResponse({ status: 400, description: 'Bad request' })
-  create(@Body() createServiceDto: CreateServiceDto) {
-    return this.servicesService.create(createServiceDto);
+  async create(@Body() createServiceDto: CreateServiceDto) {
+    const service = await this.servicesService.create(createServiceDto);
+    throw new HttpException({
+      statusCode: HttpStatus.CREATED,
+      message: 'Service created successfully',
+      data: service,
+    }, HttpStatus.CREATED);
   }
 
   @Get()
   @Public()
   @ApiOperation({ summary: 'Get all services' })
   @ApiResponse({ status: 200, description: 'Return all services' })
-  findAll(
+  @ApiResponse({ status: 204, description: 'No services found' })
+  async findAll(
     @Query() paginationDto: ServicePaginationDto,
   ) {
     const { includeDeleted, ...paginationParams } = paginationDto;
@@ -65,25 +71,42 @@ export class ServicesController {
   @Roles(UserRole.ADMIN)
   @ApiOperation({ summary: 'Get all soft-deleted services' })
   @ApiResponse({ status: 200, description: 'Return all soft-deleted services' })
-  findDeleted(@Query() paginationDto: ServicePaginationDto) {
+  @ApiResponse({ status: 204, description: 'No deleted services found' })
+  async findDeleted(@Query() paginationDto: ServicePaginationDto) {
     const { page, limit, categoryId } = paginationDto;
     return this.servicesService.findDeleted(page, limit, categoryId);
   }
 
   @Get(':id')
   @Public()
-  findOne(
+  @ApiOperation({ summary: 'Get service by ID' })
+  @ApiResponse({ status: 200, description: 'Return service' })
+  @ApiResponse({ status: 204, description: 'Service not found' })
+  async findOne(
     @Param('id') id: string,
     @Query('includeDeleted') includeDeleted?: boolean,
   ) {
     return this.servicesService.findOne(id, includeDeleted);
   }
 
+  @Get('details/:slug')
+  @Public()
+  @ApiOperation({ summary: 'Get service details by slug' })
+  @ApiResponse({ status: 200, description: 'Return service details' })
+  @ApiResponse({ status: 204, description: 'Service not found' })
+  async getServiceDetailsBySlug(@Param('slug') slug: string) {
+    return this.servicesService.findBySlug(slug);
+  }
+
   @Patch(':id')
   @ApiBearerAuth()
   @UseGuards(JwtAuthGuard, RolesGuard)
   @Roles(UserRole.ADMIN)
-  update(@Param('id') id: string, @Body() updateServiceDto: UpdateServiceDto) {
+  @ApiOperation({ summary: 'Update service' })
+  @ApiResponse({ status: 200, description: 'Service updated successfully' })
+  @ApiResponse({ status: 204, description: 'Service not found' })
+  @ApiResponse({ status: 400, description: 'Bad request' })
+  async update(@Param('id') id: string, @Body() updateServiceDto: UpdateServiceDto) {
     return this.servicesService.update(id, updateServiceDto);
   }
 
@@ -91,7 +114,10 @@ export class ServicesController {
   @ApiBearerAuth()
   @UseGuards(JwtAuthGuard, RolesGuard)
   @Roles(UserRole.ADMIN)
-  remove(@Param('id') id: string) {
+  @ApiOperation({ summary: 'Delete service' })
+  @ApiResponse({ status: 200, description: 'Service deleted successfully' })
+  @ApiResponse({ status: 204, description: 'Service not found' })
+  async remove(@Param('id') id: string) {
     return this.servicesService.remove(id);
   }
 
@@ -101,17 +127,9 @@ export class ServicesController {
   @Roles(UserRole.ADMIN)
   @ApiOperation({ summary: 'Restore a deleted service' })
   @ApiResponse({ status: 200, description: 'Service restored successfully' })
-  @ApiResponse({ status: 404, description: 'Service not found' })
-  restore(@Param('id') id: string) {
+  @ApiResponse({ status: 204, description: 'Service not found' })
+  @ApiResponse({ status: 400, description: 'Service is not deleted' })
+  async restore(@Param('id') id: string) {
     return this.servicesService.restore(id);
-  }
-
-  @Get('details/:slug')
-  @Public()
-  @ApiOperation({ summary: 'Get service details by slug' })
-  @ApiResponse({ status: 200, description: 'Return service details' })
-  @ApiResponse({ status: 404, description: 'Service not found' })
-  async getServiceDetailsBySlug(@Param('slug') slug: string) {
-    return this.servicesService.findBySlug(slug);
   }
 }

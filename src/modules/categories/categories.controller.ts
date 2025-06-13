@@ -8,6 +8,8 @@ import {
   Delete,
   Query,
   UseGuards,
+  HttpException,
+  HttpStatus,
 } from '@nestjs/common';
 import { ApiTags, ApiOperation, ApiResponse, ApiBearerAuth } from '@nestjs/swagger';
 import { CategoriesService } from './categories.service';
@@ -33,22 +35,27 @@ export class CategoriesController {
   @ApiOperation({ summary: 'Create a new category' })
   @ApiResponse({ status: 201, description: 'Category created successfully' })
   @ApiResponse({ status: 400, description: 'Bad request' })
-  create(@Body() createCategoryDto: CreateCategoryDto) {
-    return this.categoriesService.create(createCategoryDto);
+  async create(@Body() createCategoryDto: CreateCategoryDto) {
+    const category = await this.categoriesService.create(createCategoryDto);
+    throw new HttpException({
+      statusCode: HttpStatus.CREATED,
+      message: 'Category created successfully',
+      data: category,
+    }, HttpStatus.CREATED);
   }
 
   @Get()
   @Public()
   @ApiOperation({ summary: 'Get all categories' })
   @ApiResponse({ status: 200, description: 'Return all categories' })
-  findAll(
+  @ApiResponse({ status: 204, description: 'No categories found' })
+  async findAll(
     @Query() paginationDto: PaginationDto,
+    @Query('type') type?: CategoryType,
+    @Query('includeDeleted') includeDeleted?: boolean,
   ) {
-    const { includeDeleted, ...paginationParams } = paginationDto;
-    return this.categoriesService.findAll(
-      paginationParams,
-      includeDeleted,
-    );
+    const { page, limit } = paginationDto;
+    return this.categoriesService.findAll({ page, limit }, includeDeleted);
   }
 
   @Get('deleted')
@@ -57,20 +64,18 @@ export class CategoriesController {
   @Roles(UserRole.ADMIN)
   @ApiOperation({ summary: 'Get all soft-deleted categories' })
   @ApiResponse({ status: 200, description: 'Return all soft-deleted categories' })
-  findDeleted(@Query() paginationDto: PaginationDto) {
+  @ApiResponse({ status: 204, description: 'No deleted categories found' })
+  async findDeleted(@Query() paginationDto: PaginationDto) {
     const { page, limit } = paginationDto;
-    return this.categoriesService.findAll(
-      { page, limit },
-      true
-    );
+    return this.categoriesService.findAll({ page, limit }, true);
   }
 
   @Get(':id')
   @Public()
   @ApiOperation({ summary: 'Get a category by ID' })
   @ApiResponse({ status: 200, description: 'Return the category' })
-  @ApiResponse({ status: 404, description: 'Category not found' })
-  findOne(
+  @ApiResponse({ status: 204, description: 'Category not found' })
+  async findOne(
     @Param('id') id: string,
     @Query('includeDeleted') includeDeleted?: boolean,
   ) {
@@ -81,13 +86,11 @@ export class CategoriesController {
   @ApiBearerAuth()
   @UseGuards(JwtAuthGuard, RolesGuard)
   @Roles(UserRole.ADMIN)
-  @ApiOperation({ summary: 'Update a category' })
+  @ApiOperation({ summary: 'Update category' })
   @ApiResponse({ status: 200, description: 'Category updated successfully' })
-  @ApiResponse({ status: 404, description: 'Category not found' })
-  update(
-    @Param('id') id: string,
-    @Body() updateCategoryDto: UpdateCategoryDto,
-  ) {
+  @ApiResponse({ status: 204, description: 'Category not found' })
+  @ApiResponse({ status: 400, description: 'Bad request' })
+  async update(@Param('id') id: string, @Body() updateCategoryDto: UpdateCategoryDto) {
     return this.categoriesService.update(id, updateCategoryDto);
   }
 
@@ -95,10 +98,10 @@ export class CategoriesController {
   @ApiBearerAuth()
   @UseGuards(JwtAuthGuard, RolesGuard)
   @Roles(UserRole.ADMIN)
-  @ApiOperation({ summary: 'Delete a category' })
+  @ApiOperation({ summary: 'Delete category' })
   @ApiResponse({ status: 200, description: 'Category deleted successfully' })
-  @ApiResponse({ status: 404, description: 'Category not found' })
-  remove(@Param('id') id: string) {
+  @ApiResponse({ status: 204, description: 'Category not found' })
+  async remove(@Param('id') id: string) {
     return this.categoriesService.remove(id);
   }
 
@@ -108,8 +111,9 @@ export class CategoriesController {
   @Roles(UserRole.ADMIN)
   @ApiOperation({ summary: 'Restore a deleted category' })
   @ApiResponse({ status: 200, description: 'Category restored successfully' })
-  @ApiResponse({ status: 404, description: 'Category not found' })
-  restore(@Param('id') id: string) {
+  @ApiResponse({ status: 204, description: 'Category not found' })
+  @ApiResponse({ status: 400, description: 'Category is not deleted' })
+  async restore(@Param('id') id: string) {
     return this.categoriesService.restore(id);
   }
 }

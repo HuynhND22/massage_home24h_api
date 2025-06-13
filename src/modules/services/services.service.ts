@@ -1,4 +1,4 @@
-import { Injectable, NotFoundException, BadRequestException } from '@nestjs/common';
+import { Injectable, NotFoundException, BadRequestException, HttpStatus } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import { Service } from './entities/service.entity';
@@ -62,6 +62,13 @@ export class ServicesService {
       .take(limit)
       .getManyAndCount();
 
+    if (data.length === 0) {
+      throw new NotFoundException({
+        statusCode: HttpStatus.NO_CONTENT,
+        message: 'No services found',
+      });
+    }
+
     return { data, total };
   }
 
@@ -75,7 +82,10 @@ export class ServicesService {
     const service = await this.servicesRepository.findOne(options);
 
     if (!service) {
-      throw new NotFoundException(`Service with ID "${id}" not found`);
+      throw new NotFoundException({
+        statusCode: HttpStatus.NO_CONTENT,
+        message: `Service with ID "${id}" not found`,
+      });
     }
 
     return service;
@@ -189,7 +199,10 @@ export class ServicesService {
     });
 
     if (!service) {
-      throw new NotFoundException(`Service with slug "${slug}" not found`);
+      throw new NotFoundException({
+        statusCode: HttpStatus.NO_CONTENT,
+        message: `Service with slug "${slug}" not found`,
+      });
     }
 
     return service;

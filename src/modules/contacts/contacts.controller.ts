@@ -10,6 +10,8 @@ import {
   UseGuards,
   UseInterceptors,
   UploadedFile,
+  HttpException,
+  HttpStatus,
 } from '@nestjs/common';
 import { ApiTags, ApiOperation, ApiResponse, ApiBearerAuth, ApiConsumes } from '@nestjs/swagger';
 import { ContactsService } from './contacts.service';
@@ -67,8 +69,12 @@ export class ContactsController {
         });
       }
       
-      const result = await this.contactsService.create(createContactDto);
-      return result;
+      const contact = await this.contactsService.create(createContactDto);
+      throw new HttpException({
+        statusCode: HttpStatus.CREATED,
+        message: 'Contact created successfully',
+        data: contact,
+      }, HttpStatus.CREATED);
     } catch (error) {
       console.error('Error creating contact:', error);
       throw error;
@@ -79,19 +85,32 @@ export class ContactsController {
   @Public()
   @ApiOperation({ summary: 'Get all contacts' })
   @ApiResponse({ status: 200, description: 'Return all contacts' })
-  findAll(
+  @ApiResponse({ status: 204, description: 'No contacts found' })
+  async findAll(
     @Query() paginationDto: PaginationDto,
     @Query('includeDeleted') includeDeleted?: boolean,
   ) {
     return this.contactsService.findAll(paginationDto, includeDeleted);
   }
 
+  @Get('deleted')
+  @ApiBearerAuth()
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles(UserRole.ADMIN)
+  @ApiOperation({ summary: 'Get all soft-deleted contacts' })
+  @ApiResponse({ status: 200, description: 'Return all soft-deleted contacts' })
+  @ApiResponse({ status: 204, description: 'No deleted contacts found' })
+  async findDeleted(@Query() paginationDto: PaginationDto) {
+    const { page, limit } = paginationDto;
+    return this.contactsService.findAll({ page, limit }, true);
+  }
+
   @Get(':id')
   @Public()
   @ApiOperation({ summary: 'Get a contact by ID' })
   @ApiResponse({ status: 200, description: 'Return the contact' })
-  @ApiResponse({ status: 404, description: 'Contact not found' })
-  findOne(
+  @ApiResponse({ status: 204, description: 'Contact not found' })
+  async findOne(
     @Param('id') id: string,
     @Query('includeDeleted') includeDeleted?: boolean,
   ) {
@@ -102,10 +121,11 @@ export class ContactsController {
   @ApiBearerAuth()
   @UseGuards(JwtAuthGuard, RolesGuard)
   @Roles(UserRole.ADMIN)
-  @ApiOperation({ summary: 'Update a contact' })
+  @ApiOperation({ summary: 'Update contact' })
   @ApiResponse({ status: 200, description: 'Contact updated successfully' })
-  @ApiResponse({ status: 404, description: 'Contact not found' })
-  update(@Param('id') id: string, @Body() updateContactDto: UpdateContactDto) {
+  @ApiResponse({ status: 204, description: 'Contact not found' })
+  @ApiResponse({ status: 400, description: 'Bad request' })
+  async update(@Param('id') id: string, @Body() updateContactDto: UpdateContactDto) {
     return this.contactsService.update(id, updateContactDto);
   }
 
@@ -113,10 +133,10 @@ export class ContactsController {
   @ApiBearerAuth()
   @UseGuards(JwtAuthGuard, RolesGuard)
   @Roles(UserRole.ADMIN)
-  @ApiOperation({ summary: 'Delete a contact' })
+  @ApiOperation({ summary: 'Delete contact' })
   @ApiResponse({ status: 200, description: 'Contact deleted successfully' })
-  @ApiResponse({ status: 404, description: 'Contact not found' })
-  remove(@Param('id') id: string) {
+  @ApiResponse({ status: 204, description: 'Contact not found' })
+  async remove(@Param('id') id: string) {
     return this.contactsService.remove(id);
   }
 
@@ -126,8 +146,9 @@ export class ContactsController {
   @Roles(UserRole.ADMIN)
   @ApiOperation({ summary: 'Restore a deleted contact' })
   @ApiResponse({ status: 200, description: 'Contact restored successfully' })
-  @ApiResponse({ status: 404, description: 'Contact not found' })
-  restore(@Param('id') id: string) {
+  @ApiResponse({ status: 204, description: 'Contact not found' })
+  @ApiResponse({ status: 400, description: 'Contact is not deleted' })
+  async restore(@Param('id') id: string) {
     return this.contactsService.restore(id);
   }
 }

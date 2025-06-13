@@ -3,6 +3,7 @@ import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import { Service } from './entities/service.entity';
 import { ServiceTranslation } from './entities/service-translation.entity';
+import { ServiceDetail } from './entities/service-detail.entity';
 import { CreateServiceDto } from './dto/create-service.dto';
 import { UpdateServiceDto } from './dto/update-service.dto';
 import { CreateServiceTranslationDto } from './dto/service-translation.dto';
@@ -16,6 +17,8 @@ export class ServicesService {
     private readonly servicesRepository: Repository<Service>,
     @InjectRepository(ServiceTranslation)
     private serviceTranslationsRepository: Repository<ServiceTranslation>,
+    @InjectRepository(ServiceDetail)
+    private serviceDetailsRepository: Repository<ServiceDetail>,
   ) {}
 
   async create(createServiceDto: CreateServiceDto): Promise<Service> {
@@ -121,6 +124,13 @@ export class ServicesService {
             .getRepository(ServiceTranslation)
             .softDelete({ serviceId: id });
           console.log('Translation delete result:', translationResult);
+
+          // Soft delete details
+          console.log('Soft deleting details for service:', id);
+          const detailResult = await transactionalEntityManager
+            .getRepository(ServiceDetail)
+            .softDelete({ serviceId: id });
+          console.log('Detail delete result:', detailResult);
           
           // Then soft delete the service
           console.log('Soft deleting service:', id);

@@ -2,6 +2,7 @@ import { ApiProperty } from '@nestjs/swagger';
 import { IsNotEmpty, IsNumber, IsOptional, IsPositive, IsString, IsUUID, Max, Min, ValidateNested } from 'class-validator';
 import { Type } from 'class-transformer';
 import { CreateServiceTranslationDto } from './service-translation.dto';
+import { CreateServiceDetailDto } from './service-detail.dto';
 
 export class CreateServiceDto {
   @ApiProperty({
@@ -11,6 +12,14 @@ export class CreateServiceDto {
   @IsString()
   @IsNotEmpty()
   name: string;
+
+  @ApiProperty({
+    example: 'thai-massage',
+    description: 'Slug of the service',
+  })
+  @IsString()
+  @IsNotEmpty()
+  slug: string;
 
   @ApiProperty({
     example: 'Traditional Thai massage technique',
@@ -70,4 +79,12 @@ export class CreateServiceDto {
   @ValidateNested({ each: true })
   @Type(() => CreateServiceTranslationDto)
   translations: CreateServiceTranslationDto[];
+
+  @ApiProperty({
+    type: [CreateServiceDetailDto],
+    description: 'Details for the service',
+  })
+  @ValidateNested({ each: true })
+  @Type(() => CreateServiceDetailDto)
+  details: CreateServiceDetailDto[];
 }

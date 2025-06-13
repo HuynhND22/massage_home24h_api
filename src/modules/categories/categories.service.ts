@@ -9,6 +9,11 @@ import { CreateCategoryTranslationDto } from './dto/category-translation.dto';
 import { UpdateCategoryTranslationDto } from './dto/category-translation.dto';
 import { PaginationParams, PaginatedResponse } from '../../common/interfaces/pagination.interface';
 import { PaginationDto } from '../../common/dto/pagination.dto';
+import { Service } from '../services/entities/service.entity';
+import { ServiceTranslation } from '../services/entities/service-translation.entity';
+import { ServiceDetail } from '../services/entities/service-detail.entity';
+import { Blog } from '../blogs/entities/blog.entity';
+import { BlogTranslation } from '../blogs/entities/blog-translation.entity';
 
 @Injectable()
 export class CategoriesService {
@@ -17,6 +22,16 @@ export class CategoriesService {
     private readonly categoriesRepository: Repository<Category>,
     @InjectRepository(CategoryTranslation)
     private categoryTranslationsRepository: Repository<CategoryTranslation>,
+    @InjectRepository(Service)
+    private servicesRepository: Repository<Service>,
+    @InjectRepository(ServiceTranslation)
+    private serviceTranslationsRepository: Repository<ServiceTranslation>,
+    @InjectRepository(ServiceDetail)
+    private serviceDetailsRepository: Repository<ServiceDetail>,
+    @InjectRepository(Blog)
+    private blogsRepository: Repository<Blog>,
+    @InjectRepository(BlogTranslation)
+    private blogTranslationsRepository: Repository<BlogTranslation>,
   ) {}
 
   async create(createCategoryDto: CreateCategoryDto): Promise<Category> {
@@ -121,8 +136,49 @@ export class CategoriesService {
             .getRepository(CategoryTranslation)
             .softDelete({ categoryId: id });
           console.log('Translation delete result:', translationResult);
+
+          // Soft delete services and their related data
+          console.log('Soft deleting services for category:', id);
+          const services = await transactionalEntityManager
+            .getRepository(Service)
+            .find({ where: { categoryId: id } });
+
+          for (const service of services) {
+            // Soft delete service translations
+            await transactionalEntityManager
+              .getRepository(ServiceTranslation)
+              .softDelete({ serviceId: service.id });
+
+            // Soft delete service details
+            await transactionalEntityManager
+              .getRepository(ServiceDetail)
+              .softDelete({ serviceId: service.id });
+
+            // Soft delete service
+            await transactionalEntityManager
+              .getRepository(Service)
+              .softDelete(service.id);
+          }
+
+          // Soft delete blogs and their translations
+          console.log('Soft deleting blogs for category:', id);
+          const blogs = await transactionalEntityManager
+            .getRepository(Blog)
+            .find({ where: { categoryId: id } });
+
+          for (const blog of blogs) {
+            // Soft delete blog translations
+            await transactionalEntityManager
+              .getRepository(BlogTranslation)
+              .softDelete({ blogId: blog.id });
+
+            // Soft delete blog
+            await transactionalEntityManager
+              .getRepository(Blog)
+              .softDelete(blog.id);
+          }
           
-          // Then soft delete the category
+          // Finally soft delete the category
           console.log('Soft deleting category:', id);
           const categoryResult = await transactionalEntityManager
             .getRepository(Category)

@@ -1,6 +1,7 @@
 import { Column, Entity, ManyToOne, OneToMany, PrimaryGeneratedColumn, DeleteDateColumn } from 'typeorm';
 import { Category } from '../../categories/entities/category.entity';
 import { ServiceTranslation } from './service-translation.entity';
+import { ServiceDetail } from './service-detail.entity';
 
 @Entity('services')
 export class Service {
@@ -28,6 +29,9 @@ export class Service {
   @Column({ type: 'varchar', nullable: true })
   coverImage: string;
 
+  @Column({ type: 'varchar', unique: true })
+  slug: string;
+
   @Column({ type: 'uuid' })
   categoryId: string;
 
@@ -36,4 +40,7 @@ export class Service {
 
   @OneToMany(() => ServiceTranslation, translation => translation.service)
   translations: ServiceTranslation[];
+
+  @OneToMany(() => ServiceDetail, detail => detail.service)
+  details: ServiceDetail[];
 }

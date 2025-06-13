@@ -26,6 +26,9 @@ export class Category {
   @Column({ type: 'varchar', nullable: true })
   coverImage: string;
 
+  @Column({ type: 'varchar', unique: true })
+  slug: string;
+
   @OneToMany(() => CategoryTranslation, translation => translation.category)
   translations: CategoryTranslation[];
 }

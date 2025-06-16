@@ -12,6 +12,7 @@ import { ServicePaginationDto } from './dto/service-pagination.dto';
 import { CreateServiceDetailDto } from './dto/create-service-detail.dto';
 import { PaginationParams, PaginatedResponse } from '../../common/interfaces/pagination.interface';
 import { PaginationDto } from '../../common/dto/pagination.dto';
+import { Language } from '../../common/dto/base-translation.dto';
 
 @Injectable()
 export class ServicesService {
@@ -25,19 +26,35 @@ export class ServicesService {
   ) {}
 
   async create(createServiceDto: CreateServiceDto): Promise<Service> {
-    const service = this.servicesRepository.create(createServiceDto);
-    await this.servicesRepository.save(service);
+    const { translations, ...serviceData } = createServiceDto;
 
-    if (createServiceDto.translations) {
-      const translations = createServiceDto.translations.map(translation => ({
-        ...translation,
-        serviceId: service.id,
-      }));
-
-      await this.serviceTranslationsRepository.save(translations);
+    // Validate that all required languages are present
+    const requiredLanguages = [Language.EN, Language.VI, Language.KO, Language.ZH];
+    const providedLanguages = translations.map(t => t.language);
+    const missingLanguages = requiredLanguages.filter(lang => !providedLanguages.includes(lang));
+    
+    if (missingLanguages.length > 0) {
+      throw new BadRequestException(`Missing translations for languages: ${missingLanguages.join(', ')}`);
     }
 
-    return this.findOne(service.id);
+    return this.servicesRepository.manager.transaction(async transactionalEntityManager => {
+      // Create and save the service
+      const service = this.servicesRepository.create(serviceData);
+      const savedService = await transactionalEntityManager.save(Service, service);
+
+      // Create and save translations
+      const serviceTranslations = translations.map(translation => 
+        this.serviceTranslationsRepository.create({
+          ...translation,
+          serviceId: savedService.id
+        })
+      );
+      
+      await transactionalEntityManager.save(ServiceTranslation, serviceTranslations);
+      savedService.translations = serviceTranslations;
+
+      return savedService;
+    });
   }
 
   async findAll(
@@ -76,13 +93,11 @@ export class ServicesService {
   }
 
   async findOne(id: string, includeDeleted = false): Promise<Service> {
-    const options = {
+    const service = await this.servicesRepository.findOne({
       where: { id },
       relations: ['translations', 'category'],
       withDeleted: includeDeleted,
-    };
-
-    const service = await this.servicesRepository.findOne(options);
+    });
 
     if (!service) {
       throw new NotFoundException({
@@ -95,32 +110,74 @@ export class ServicesService {
   }
 
   async update(id: string, updateServiceDto: UpdateServiceDto): Promise<Service> {
-    const service = await this.findOne(id);
+    const { translations, ...serviceData } = updateServiceDto;
     
-    // Update main service entity
-    Object.assign(service, updateServiceDto);
-    await this.servicesRepository.save(service);
-    
-    // Update translations if provided
-    if (updateServiceDto.translations) {
-      for (const translationDto of updateServiceDto.translations) {
-        if (translationDto.id) {
-          // Update existing translation
-          await this.serviceTranslationsRepository.update(
-            translationDto.id,
-            translationDto,
-          );
-        } else {
-          // Create new translation
-          await this.serviceTranslationsRepository.save({
-            ...translationDto,
-            serviceId: id,
-          });
+    return this.servicesRepository.manager.transaction(async transactionalEntityManager => {
+      // Get the service with its current translations
+      const service = await this.findOne(id);
+      
+      // Update basic service data
+      Object.assign(service, serviceData);
+      await transactionalEntityManager.save(Service, service);
+      
+      if (translations && translations.length > 0) {
+        // Update or create translations
+        for (const translation of translations) {
+          // Use queryBuilder to ensure we get the latest data
+          const existingTranslation = await transactionalEntityManager
+            .getRepository(ServiceTranslation)
+            .createQueryBuilder('translation')
+            .where('translation.serviceId = :serviceId', { serviceId: id })
+            .andWhere('translation.language = :language', { language: translation.language })
+            .getOne();
+          
+          if (existingTranslation) {
+            // Update existing translation
+            await transactionalEntityManager
+              .getRepository(ServiceTranslation)
+              .createQueryBuilder()
+              .update()
+              .set({
+                name: translation.name,
+                description: translation.description || existingTranslation.description
+              })
+              .where('id = :id', { id: existingTranslation.id })
+              .execute();
+          } else {
+            // Create new translation
+            await transactionalEntityManager
+              .getRepository(ServiceTranslation)
+              .createQueryBuilder()
+              .insert()
+              .values({
+                serviceId: id,
+                language: translation.language,
+                name: translation.name,
+                description: translation.description || ''
+              })
+              .execute();
+          }
         }
       }
-    }
-    
-    return this.findOne(id);
+      
+      // Fetch and return the updated service with all translations
+      const updatedService = await transactionalEntityManager
+        .getRepository(Service)
+        .createQueryBuilder('service')
+        .leftJoinAndSelect('service.translations', 'translations')
+        .leftJoinAndSelect('service.category', 'category')
+        .where('service.id = :id', { id })
+        .getOne();
+
+      if (!updatedService) {
+        throw new NotFoundException({
+          statusCode: HttpStatus.NO_CONTENT,
+          message: `Service with ID "${id}" not found`,
+        });
+      }
+
+      return updatedService;
+    });
   }
 
   async remove(id: string): Promise<Service> {

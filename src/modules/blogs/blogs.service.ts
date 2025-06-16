@@ -8,6 +8,7 @@ import { UpdateBlogDto } from './dto/update-blog.dto';
 import { CreateBlogTranslationDto } from './dto/create-blog-translation.dto';
 import { UpdateBlogTranslationDto } from './dto/update-blog-translation.dto';
 import { PaginationParams, PaginatedResponse } from '../../common/interfaces/pagination.interface';
+import { Language } from '../../common/dto/base-translation.dto';
 
 @Injectable()
 export class BlogsService {
@@ -29,8 +30,33 @@ export class BlogsService {
       throw new BadRequestException('Blog with this slug already exists');
     }
 
-    const blog = this.blogsRepository.create(createBlogDto);
-    return this.blogsRepository.save(blog);
+    // Validate that all required languages are present
+    const requiredLanguages = [Language.EN, Language.VI, Language.KO, Language.ZH];
+    const providedLanguages = createBlogDto.translations.map(t => t.language);
+    const missingLanguages = requiredLanguages.filter(lang => !providedLanguages.includes(lang));
+    
+    if (missingLanguages.length > 0) {
+      throw new BadRequestException(`Missing translations for languages: ${missingLanguages.join(', ')}`);
+    }
+
+    return this.blogsRepository.manager.transaction(async transactionalEntityManager => {
+      // Create and save the blog
+      const blog = this.blogsRepository.create(createBlogDto);
+      const savedBlog = await transactionalEntityManager.save(Blog, blog);
+
+      // Create and save translations
+      const blogTranslations = createBlogDto.translations.map(translation => 
+        this.blogTranslationsRepository.create({
+          ...translation,
+          blogId: savedBlog.id
+        })
+      );
+      
+      await transactionalEntityManager.save(BlogTranslation, blogTranslations);
+      savedBlog.translations = blogTranslations;
+
+      return savedBlog;
+    });
   }
 
   async findAll(
@@ -86,15 +112,15 @@ export class BlogsService {
     };
   }
 
-  async findOne(id: string, includeDeleted: boolean = false): Promise<Blog> {
+  async findOne(id: string, includeDeleted = false): Promise<Blog> {
     const blog = await this.blogsRepository.findOne({
       where: { id },
-      relations: ['category', 'translations'],
+      relations: ['translations'],
       withDeleted: includeDeleted,
     });
 
     if (!blog) {
-      throw new NotFoundException(`Blog with ID ${id} not found`);
+      throw new NotFoundException(`Blog with ID "${id}" not found`);
     }
 
     return blog;
@@ -118,22 +144,72 @@ export class BlogsService {
   }
 
   async update(id: string, updateBlogDto: UpdateBlogDto): Promise<Blog> {
-    const blog = await this.findOne(id);
+    const { translations, ...blogData } = updateBlogDto;
     
-    // Check if slug is being updated and already exists
-    if (updateBlogDto.slug && updateBlogDto.slug !== blog.slug) {
-      const existingBlog = await this.blogsRepository.findOne({
-        where: { slug: updateBlogDto.slug },
-        withDeleted: true,
-      });
-
-      if (existingBlog && existingBlog.id !== id) {
-        throw new BadRequestException('Blog with this slug already exists');
+    return this.blogsRepository.manager.transaction(async transactionalEntityManager => {
+      // Get the blog with its current translations
+      const blog = await this.findOne(id);
+      
+      // Update basic blog data
+      Object.assign(blog, blogData);
+      await transactionalEntityManager.save(Blog, blog);
+      
+      if (translations && translations.length > 0) {
+        // Update or create translations
+        for (const translation of translations) {
+          // Use queryBuilder to ensure we get the latest data
+          const existingTranslation = await transactionalEntityManager
+            .getRepository(BlogTranslation)
+            .createQueryBuilder('translation')
+            .where('translation.blogId = :blogId', { blogId: id })
+            .andWhere('translation.language = :language', { language: translation.language })
+            .getOne();
+          
+          if (existingTranslation) {
+            // Update existing translation
+            await transactionalEntityManager
+              .getRepository(BlogTranslation)
+              .createQueryBuilder()
+              .update()
+              .set({
+                title: translation.title,
+                description: translation.description || existingTranslation.description,
+                content: translation.content || existingTranslation.content
+              })
+              .where('id = :id', { id: existingTranslation.id })
+              .execute();
+          } else {
+            // Create new translation
+            await transactionalEntityManager
+              .getRepository(BlogTranslation)
+              .createQueryBuilder()
+              .insert()
+              .values({
+                blogId: id,
+                language: translation.language,
+                title: translation.title,
+                description: translation.description || '',
+                content: translation.content || ''
+              })
+              .execute();
+          }
+        }
       }
-    }
-    
-    Object.assign(blog, updateBlogDto);
-    return this.blogsRepository.save(blog);
+      
+      // Fetch and return the updated blog with all translations
+      const updatedBlog = await transactionalEntityManager
+        .getRepository(Blog)
+        .createQueryBuilder('blog')
+        .leftJoinAndSelect('blog.translations', 'translations')
+        .where('blog.id = :id', { id })
+        .getOne();
+
+      if (!updatedBlog) {
+        throw new NotFoundException(`Blog with ID "${id}" not found`);
+      }
+
+      return updatedBlog;
+    });
   }
 
   async remove(id: string): Promise<void> {

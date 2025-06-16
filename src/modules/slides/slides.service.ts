@@ -8,6 +8,7 @@ import { UpdateSlideDto } from './dto/update-slide.dto';
 import { CreateSlideTranslationDto } from './dto/slide-translation.dto';
 import { UpdateSlideTranslationDto } from './dto/slide-translation.dto';
 import { SlidePaginationDto } from './dto/slide-pagination.dto';
+import { Language } from '../../common/dto/base-translation.dto';
 
 @Injectable()
 export class SlidesService {
@@ -19,19 +20,35 @@ export class SlidesService {
   ) {}
 
   async create(createSlideDto: CreateSlideDto): Promise<Slide> {
-    const slide = this.slidesRepository.create(createSlideDto);
-    await this.slidesRepository.save(slide);
+    const { translations, ...slideData } = createSlideDto;
 
-    if (createSlideDto.translations) {
-      const translations = createSlideDto.translations.map(translation => ({
-        ...translation,
-        slideId: slide.id,
-      }));
-
-      await this.slideTranslationsRepository.save(translations);
+    // Validate that all required languages are present
+    const requiredLanguages = [Language.EN, Language.VI, Language.KO, Language.ZH];
+    const providedLanguages = translations.map(t => t.language);
+    const missingLanguages = requiredLanguages.filter(lang => !providedLanguages.includes(lang));
+    
+    if (missingLanguages.length > 0) {
+      throw new BadRequestException(`Missing translations for languages: ${missingLanguages.join(', ')}`);
     }
 
-    return this.findOne(slide.id);
+    return this.slidesRepository.manager.transaction(async transactionalEntityManager => {
+      // Create and save the slide
+      const slide = this.slidesRepository.create(slideData);
+      const savedSlide = await transactionalEntityManager.save(Slide, slide);
+
+      // Create and save translations
+      const slideTranslations = translations.map(translation => 
+        this.slideTranslationsRepository.create({
+        ...translation,
+          slideId: savedSlide.id
+        })
+      );
+
+      await transactionalEntityManager.save(SlideTranslation, slideTranslations);
+      savedSlide.translations = slideTranslations;
+
+      return savedSlide;
+    });
   }
 
   async findAll(
@@ -62,13 +79,11 @@ export class SlidesService {
   }
 
   async findOne(id: string, includeDeleted = false): Promise<Slide> {
-    const options = {
+    const slide = await this.slidesRepository.findOne({
       where: { id },
       relations: ['translations'],
       withDeleted: includeDeleted,
-    };
-
-    const slide = await this.slidesRepository.findOne(options);
+    });
 
     if (!slide) {
       throw new NotFoundException(`Slide with ID "${id}" not found`);
@@ -78,32 +93,70 @@ export class SlidesService {
   }
 
   async update(id: string, updateSlideDto: UpdateSlideDto): Promise<Slide> {
-    const slide = await this.findOne(id);
+    const { translations, ...slideData } = updateSlideDto;
     
-    // Update main slide entity
-    Object.assign(slide, updateSlideDto);
-    await this.slidesRepository.save(slide);
-    
-    // Update translations if provided
-    if (updateSlideDto.translations) {
-      for (const translationDto of updateSlideDto.translations) {
-        if (translationDto.id) {
-          // Update existing translation
-          await this.slideTranslationsRepository.update(
-            translationDto.id,
-            translationDto,
-          );
-        } else {
-          // Create new translation
-          await this.slideTranslationsRepository.save({
-            ...translationDto,
-            slideId: id,
-          });
+    return this.slidesRepository.manager.transaction(async transactionalEntityManager => {
+      // Get the slide with its current translations
+      const slide = await this.findOne(id);
+      
+      // Update basic slide data
+      Object.assign(slide, slideData);
+      await transactionalEntityManager.save(Slide, slide);
+      
+      if (translations && translations.length > 0) {
+        // Update or create translations
+        for (const translation of translations) {
+          // Use queryBuilder to ensure we get the latest data
+          const existingTranslation = await transactionalEntityManager
+            .getRepository(SlideTranslation)
+            .createQueryBuilder('translation')
+            .where('translation.slideId = :slideId', { slideId: id })
+            .andWhere('translation.language = :language', { language: translation.language })
+            .getOne();
+          
+          if (existingTranslation) {
+            // Update existing translation
+            await transactionalEntityManager
+              .getRepository(SlideTranslation)
+              .createQueryBuilder()
+              .update()
+              .set({
+                title: translation.title,
+                description: translation.description || existingTranslation.description
+              })
+              .where('id = :id', { id: existingTranslation.id })
+              .execute();
+          } else {
+            // Create new translation
+            await transactionalEntityManager
+              .getRepository(SlideTranslation)
+              .createQueryBuilder()
+              .insert()
+              .values({
+                slideId: id,
+                language: translation.language,
+                title: translation.title,
+                description: translation.description || ''
+              })
+              .execute();
+          }
         }
       }
-    }
-    
-    return this.findOne(id);
+      
+      // Fetch and return the updated slide with all translations
+      const updatedSlide = await transactionalEntityManager
+        .getRepository(Slide)
+        .createQueryBuilder('slide')
+        .leftJoinAndSelect('slide.translations', 'translations')
+        .where('slide.id = :id', { id })
+        .getOne();
+
+      if (!updatedSlide) {
+        throw new NotFoundException(`Slide with ID "${id}" not found`);
+      }
+
+      return updatedSlide;
+    });
   }
 
   async remove(id: string): Promise<Slide> {

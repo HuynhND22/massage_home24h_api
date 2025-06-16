@@ -1,22 +1,15 @@
-import { ApiProperty } from '@nestjs/swagger';
+import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
 import { IsNotEmpty, IsOptional, IsString, IsUUID } from 'class-validator';
+import { BaseTranslationDto } from '../../../common/dto/base-translation.dto';
 
-export class CreateBlogTranslationDto {
+export class CreateBlogTranslationDto extends BaseTranslationDto {
   @ApiProperty({
     example: '123e4567-e89b-12d3-a456-426614174000',
-    description: 'ID of the blog post this translation belongs to',
+    description: 'ID of the blog to create translation for',
   })
   @IsUUID()
   @IsNotEmpty()
   blogId: string;
-
-  @ApiProperty({
-    example: 'vi',
-    description: 'Language code for this translation (e.g., en, vi, ko)',
-  })
-  @IsString()
-  @IsNotEmpty()
-  language: string;
 
   @ApiProperty({
     example: 'Lợi ích của Massage Thái',
@@ -26,10 +19,9 @@ export class CreateBlogTranslationDto {
   @IsNotEmpty()
   title: string;
 
-  @ApiProperty({
+  @ApiPropertyOptional({
     example: 'Khám phá những lợi ích tuyệt vời cho sức khỏe từ massage Thái truyền thống',
     description: 'Translated short description of the blog post',
-    required: false,
   })
   @IsString()
   @IsOptional()

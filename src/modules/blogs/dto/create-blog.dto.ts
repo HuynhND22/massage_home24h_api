@@ -1,5 +1,7 @@
 import { ApiProperty } from '@nestjs/swagger';
-import { IsNotEmpty, IsOptional, IsString, IsUUID } from 'class-validator';
+import { IsNotEmpty, IsOptional, IsString, IsUUID, ValidateNested } from 'class-validator';
+import { Type } from 'class-transformer';
+import { CreateBlogTranslationDto } from './create-blog-translation.dto';
 
 export class CreateBlogDto {
   @ApiProperty({
@@ -51,4 +53,12 @@ export class CreateBlogDto {
   @IsUUID()
   @IsNotEmpty()
   categoryId: string;
+
+  @ApiProperty({
+    type: [CreateBlogTranslationDto],
+    description: 'Translations for the blog post',
+  })
+  @ValidateNested({ each: true })
+  @Type(() => CreateBlogTranslationDto)
+  translations: CreateBlogTranslationDto[];
 }

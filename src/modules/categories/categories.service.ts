@@ -1,4 +1,4 @@
-import { Injectable, NotFoundException } from '@nestjs/common';
+import { Injectable, NotFoundException, BadRequestException } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import { Category, CategoryType } from './entities/category.entity';
@@ -14,6 +14,7 @@ import { ServiceTranslation } from '../services/entities/service-translation.ent
 import { ServiceDetail } from '../services/entities/service-detail.entity';
 import { Blog } from '../blogs/entities/blog.entity';
 import { BlogTranslation } from '../blogs/entities/blog-translation.entity';
+import { Language } from '../../common/dto/base-translation.dto';
 
 @Injectable()
 export class CategoriesService {
@@ -37,12 +38,20 @@ export class CategoriesService {
   async create(createCategoryDto: CreateCategoryDto): Promise<Category> {
     const { translations, name, description, ...categoryData } = createCategoryDto;
     
+    // Validate that all required languages are present
+    const requiredLanguages = [Language.EN, Language.VI, Language.KO, Language.ZH];
+    const providedLanguages = translations.map(t => t.language);
+    const missingLanguages = requiredLanguages.filter(lang => !providedLanguages.includes(lang));
+    
+    if (missingLanguages.length > 0) {
+      throw new BadRequestException(`Missing translations for languages: ${missingLanguages.join(', ')}`);
+    }
+    
     return this.categoriesRepository.manager.transaction(async transactionalEntityManager => {
       // Create and save the category
       const category = this.categoriesRepository.create(categoryData);
       const savedCategory = await transactionalEntityManager.save(Category, category);
       
-      if (translations && translations.length > 0) {
         // Create and save translations
         const categoryTranslations = translations.map(translation => 
           this.categoryTranslationsRepository.create({
@@ -53,7 +62,6 @@ export class CategoriesService {
         
         await transactionalEntityManager.save(CategoryTranslation, categoryTranslations);
         savedCategory.translations = categoryTranslations;
-      }
       
       return savedCategory;
     });
@@ -85,13 +93,11 @@ export class CategoriesService {
   }
 
   async findOne(id: string, includeDeleted = false): Promise<Category> {
-    const options = {
+    const category = await this.categoriesRepository.findOne({
       where: { id },
       relations: ['translations'],
       withDeleted: includeDeleted,
-    };
-
-    const category = await this.categoriesRepository.findOne(options);
+    });
 
     if (!category) {
       throw new NotFoundException(`Category with ID "${id}" not found`);
@@ -102,24 +108,69 @@ export class CategoriesService {
 
   async update(id: string, updateCategoryDto: UpdateCategoryDto): Promise<Category> {
     const { translations, ...categoryData } = updateCategoryDto;
-    const category = await this.findOne(id);
     
-    Object.assign(category, categoryData);
-    
-    if (translations) {
-      // Remove existing translations
-      await this.categoryTranslationsRepository.delete({ categoryId: id });
+    return this.categoriesRepository.manager.transaction(async transactionalEntityManager => {
+      // Get the category with its current translations
+      const category = await this.findOne(id);
       
-      // Create new translations
-      category.translations = translations.map(translation => 
-        this.categoryTranslationsRepository.create({
-          ...translation,
-          categoryId: id,
-        })
-      );
-    }
-    
-    return this.categoriesRepository.save(category);
+      // Update basic category data
+      Object.assign(category, categoryData);
+      await transactionalEntityManager.save(Category, category);
+      
+      if (translations && translations.length > 0) {
+        // Update or create translations
+        for (const translation of translations) {
+          // Use queryBuilder to ensure we get the latest data
+          const existingTranslation = await transactionalEntityManager
+            .getRepository(CategoryTranslation)
+            .createQueryBuilder('translation')
+            .where('translation.categoryId = :categoryId', { categoryId: id })
+            .andWhere('translation.language = :language', { language: translation.language })
+            .getOne();
+          
+          if (existingTranslation) {
+            // Update existing translation
+            await transactionalEntityManager
+              .getRepository(CategoryTranslation)
+              .createQueryBuilder()
+              .update()
+              .set({
+                name: translation.name,
+                description: translation.description || existingTranslation.description
+              })
+              .where('id = :id', { id: existingTranslation.id })
+              .execute();
+          } else {
+            // Create new translation
+            await transactionalEntityManager
+              .getRepository(CategoryTranslation)
+              .createQueryBuilder()
+              .insert()
+              .values({
+                categoryId: id,
+                language: translation.language,
+                name: translation.name,
+                description: translation.description || ''
+              })
+              .execute();
+          }
+        }
+      }
+      
+      // Fetch and return the updated category with all translations
+      const updatedCategory = await transactionalEntityManager
+        .getRepository(Category)
+        .createQueryBuilder('category')
+        .leftJoinAndSelect('category.translations', 'translations')
+        .where('category.id = :id', { id })
+        .getOne();
+
+      if (!updatedCategory) {
+        throw new NotFoundException(`Category with ID "${id}" not found`);
+      }
+
+      return updatedCategory;
+    });
   }
 
   async remove(id: string): Promise<Category> {
@@ -136,7 +187,7 @@ export class CategoriesService {
             .getRepository(CategoryTranslation)
             .softDelete({ categoryId: id });
           console.log('Translation delete result:', translationResult);
-
+          
           // Soft delete services and their related data
           console.log('Soft deleting services for category:', id);
           const services = await transactionalEntityManager
@@ -201,7 +252,7 @@ export class CategoriesService {
     const category = await this.findOne(id, true);
     
     if (!category.deletedAt) {
-      throw new Error('Category is not deleted');
+      throw new BadRequestException('Category is not deleted');
     }
     
     await this.categoriesRepository.restore(id);

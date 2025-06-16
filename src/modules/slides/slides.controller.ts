@@ -38,37 +38,11 @@ export class SlidesController {
   @ApiBearerAuth()
   @UseGuards(JwtAuthGuard, RolesGuard)
   @Roles(UserRole.ADMIN)
-  @ApiOperation({ summary: 'Create a new slide with image upload' })
-  @ApiConsumes('multipart/form-data')
+  @ApiOperation({ summary: 'Create a new slide' })
   @ApiResponse({ status: 201, description: 'Slide created successfully' })
   @ApiResponse({ status: 400, description: 'Bad request' })
-  @UseInterceptors(FileInterceptor('image'))
-  async create(
-    @Body() createSlideDto: CreateSlideDto,
-    @UploadedFile() file?: Express.Multer.File
-  ) {
+  async create(@Body() createSlideDto: CreateSlideDto) {
     try {
-      // If file was uploaded, upload to R2 and set the image field
-      if (file) {
-        const fileUrl = await this.r2StorageService.uploadFile(file, 'slides');
-        createSlideDto.image = fileUrl;
-        console.log('Image uploaded to R2:', fileUrl);
-      }
-      
-      // Parse any JSON string fields that might have been sent as form data
-      if (createSlideDto) {
-        Object.keys(createSlideDto).forEach(key => {
-          try {
-            if (typeof createSlideDto[key] === 'string' && createSlideDto[key].startsWith('{')) {
-              const parsed = JSON.parse(createSlideDto[key]);
-              createSlideDto[key] = parsed;
-            }
-          } catch (e) {
-            // Not JSON, keep as is
-          }
-        });
-      }
-      
       const slide = await this.slidesService.create(createSlideDto);
       throw new HttpException({
         statusCode: HttpStatus.CREATED,
@@ -77,6 +51,33 @@ export class SlidesController {
       }, HttpStatus.CREATED);
     } catch (error) {
       console.error('Error creating slide:', error);
+      throw error;
+    }
+  }
+
+  @Post('upload')
+  @ApiBearerAuth()
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles(UserRole.ADMIN)
+  @ApiOperation({ summary: 'Upload slide image' })
+  @ApiConsumes('multipart/form-data')
+  @ApiResponse({ status: 201, description: 'Image uploaded successfully' })
+  @ApiResponse({ status: 400, description: 'Bad request' })
+  @UseInterceptors(FileInterceptor('image'))
+  async uploadImage(@UploadedFile() file: Express.Multer.File) {
+    try {
+      if (!file) {
+        throw new HttpException('No file uploaded', HttpStatus.BAD_REQUEST);
+      }
+      
+      const fileUrl = await this.r2StorageService.uploadFile(file, 'slides');
+      return {
+        statusCode: HttpStatus.CREATED,
+        message: 'Image uploaded successfully',
+        data: { url: fileUrl },
+      };
+    } catch (error) {
+      console.error('Error uploading image:', error);
       throw error;
     }
   }

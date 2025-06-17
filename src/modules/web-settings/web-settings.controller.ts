@@ -6,7 +6,6 @@ import {
   Patch,
   Param,
   Delete,
-  Query,
   UseGuards,
   UseInterceptors,
   UploadedFile,
@@ -79,8 +78,8 @@ export class WebSettingsController {
   @ApiOperation({ summary: 'Get web settings' })
   @ApiResponse({ status: 200, description: 'Return web settings' })
   @ApiResponse({ status: 404, description: 'Web settings not found' })
-  findOne(@Query('includeDeleted') includeDeleted?: boolean) {
-    return this.webSettingsService.findOne(includeDeleted);
+  findOne() {
+    return this.webSettingsService.findOne();
   }
 
   @Patch(':id')
@@ -136,16 +135,5 @@ export class WebSettingsController {
   @ApiResponse({ status: 404, description: 'Web settings not found' })
   remove(@Param('id') id: string) {
     return this.webSettingsService.remove(id);
-  }
-
-  @Post(':id/restore')
-  @ApiBearerAuth()
-  @UseGuards(JwtAuthGuard, RolesGuard)
-  @Roles(UserRole.ADMIN)
-  @ApiOperation({ summary: 'Restore deleted web settings' })
-  @ApiResponse({ status: 200, description: 'Web settings restored successfully' })
-  @ApiResponse({ status: 404, description: 'Web settings not found' })
-  restore(@Param('id') id: string) {
-    return this.webSettingsService.restore(id);
   }
 }

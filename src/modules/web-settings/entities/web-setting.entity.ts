@@ -1,8 +1,10 @@
-import { Column, Entity } from 'typeorm';
-import { BaseEntity } from '../../../common/entities/base.entity';
+import { Column, Entity, PrimaryGeneratedColumn } from 'typeorm';
 
 @Entity('web_settings')
-export class WebSetting extends BaseEntity {
+export class WebSetting {
+  @PrimaryGeneratedColumn('uuid')
+  id: string;
+
   @Column()
   siteName: string;
 
@@ -25,11 +27,20 @@ export class WebSetting extends BaseEntity {
   phone: string;
 
   @Column({ nullable: true })
-  facebook: string;
+  messenger: string;
 
   @Column({ nullable: true })
-  instagram: string;
+  zalo: string;
 
   @Column({ nullable: true })
-  twitter: string;
+  wechat: string;
+
+  @Column({ nullable: true })
+  telegram: string;
+
+  @Column({ nullable: true })
+  line: string;
+
+  @Column({ nullable: true })
+  kakaotalk: string;
 }

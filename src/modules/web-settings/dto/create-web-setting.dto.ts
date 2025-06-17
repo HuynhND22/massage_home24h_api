@@ -65,13 +65,13 @@ export class CreateWebSettingDto {
   phone?: string;
 
   @ApiProperty({
-    example: 'https://facebook.com/spa-page',
-    description: 'Facebook page URL of the business',
+    example: 'https://m.me/spa-page',
+    description: 'Facebook Messenger URL of the business',
     required: false,
   })
   @IsString()
   @IsOptional()
-  facebook?: string;
+  messenger?: string;
 
   @ApiProperty({
     example: 'https://zalo.me/spa-page',
@@ -83,13 +83,13 @@ export class CreateWebSettingDto {
   zalo?: string;
 
   @ApiProperty({
-    example: 'https://open.kakao.com/spa-page',
-    description: 'KakaoTalk URL or ID of the business',
+    example: 'wxid_xxxxxx',
+    description: 'WeChat ID of the business',
     required: false,
   })
   @IsString()
   @IsOptional()
-  kakaotalk?: string;
+  wechat?: string;
 
   @ApiProperty({
     example: 'https://t.me/spa-page',
@@ -101,15 +101,6 @@ export class CreateWebSettingDto {
   telegram?: string;
 
   @ApiProperty({
-    example: 'wxid_xxxxxx',
-    description: 'WeChat ID of the business',
-    required: false,
-  })
-  @IsString()
-  @IsOptional()
-  wechat?: string;
-
-  @ApiProperty({
     example: 'https://line.me/spa-page',
     description: 'Line URL or ID of the business',
     required: false,
@@ -117,4 +108,13 @@ export class CreateWebSettingDto {
   @IsString()
   @IsOptional()
   line?: string;
+
+  @ApiProperty({
+    example: 'https://open.kakao.com/spa-page',
+    description: 'KakaoTalk URL or ID of the business',
+    required: false,
+  })
+  @IsString()
+  @IsOptional()
+  kakaotalk?: string;
 }

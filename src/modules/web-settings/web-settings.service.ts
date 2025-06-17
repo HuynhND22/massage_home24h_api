@@ -24,11 +24,9 @@ export class WebSettingsService {
     return this.webSettingsRepository.save(webSetting);
   }
 
-  async findOne(includeDeleted: boolean = false): Promise<WebSetting> {
+  async findOne(): Promise<WebSetting> {
     const webSetting = await this.webSettingsRepository.findOne({
       where: {},
-      withDeleted: includeDeleted,
-      order: { createdAt: 'DESC' },
     });
 
     if (!webSetting) {
@@ -52,42 +50,14 @@ export class WebSettingsService {
   }
 
   async remove(id: string): Promise<void> {
-    try {
-      // Tìm web setting kể cả đã bị soft delete
-      const webSetting = await this.webSettingsRepository.findOne({
-        where: { id },
-        withDeleted: true,
-      });
-
-      if (!webSetting) {
-        throw new NotFoundException(`Web settings with ID ${id} not found`);
-      }
-      
-      console.log('Found web setting:', webSetting);
-      console.log('Soft deleting web setting:', id);
-      const result = await this.webSettingsRepository.softDelete(id);
-      console.log('Web setting delete result:', result);
-    } catch (error) {
-      console.error('Error in remove method:', error);
-      throw error;
-    }
-  }
-
-  async restore(id: string): Promise<WebSetting> {
     const webSetting = await this.webSettingsRepository.findOne({
       where: { id },
-      withDeleted: true,
     });
 
     if (!webSetting) {
       throw new NotFoundException(`Web settings with ID ${id} not found`);
     }
-
-    if (!webSetting.deletedAt) {
-      throw new Error('Web settings are not deleted');
-    }
     
-    await this.webSettingsRepository.restore(id);
-    return this.findOne();
+    await this.webSettingsRepository.delete(id);
   }
 }

@@ -117,4 +117,22 @@ export class CreateWebSettingDto {
   @IsString()
   @IsOptional()
   kakaotalk?: string;
+
+  @ApiProperty({
+    example: '84901234567',
+    description: 'WhatsApp phone number of the business',
+    required: false,
+  })
+  @IsString()
+  @IsOptional()
+  whatsapp?: string;
+
+  @ApiProperty({
+    example: 'spa_instagram',
+    description: 'Instagram username of the business',
+    required: false,
+  })
+  @IsString()
+  @IsOptional()
+  instagram?: string;
 }

@@ -43,4 +43,10 @@ export class WebSetting {
 
   @Column({ nullable: true })
   kakaotalk: string;
+
+  @Column({ nullable: true })
+  whatsapp: string;
+
+  @Column({ nullable: true })
+  instagram: string;
 }

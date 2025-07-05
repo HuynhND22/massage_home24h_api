@@ -95,7 +95,7 @@ export class ServicesService {
   async findOne(id: string, includeDeleted = false): Promise<Service> {
     const service = await this.servicesRepository.findOne({
       where: { id },
-      relations: ['translations', 'category'],
+      relations: ['translations', 'category', 'details'],
       withDeleted: includeDeleted,
     });
 

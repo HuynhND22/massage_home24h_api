@@ -12,6 +12,9 @@ import {
   UseInterceptors,
   HttpException,
   HttpStatus,
+  Put,
+  ParseIntPipe,
+  DefaultValuePipe,
 } from '@nestjs/common';
 import { LoggingInterceptor } from '../../common/interceptors/logging.interceptor';
 import {
@@ -20,21 +23,27 @@ import {
   ApiConsumes,
   ApiResponse,
   ApiBearerAuth,
+  ApiParam,
+  ApiBody,
 } from '@nestjs/swagger';
 import { ServicesService } from './services.service';
 import { CreateServiceDto } from './dto/create-service.dto';
 import { UpdateServiceDto } from './dto/update-service.dto';
 import { CreateServiceDetailDto } from './dto/create-service-detail.dto';
+import { UpdateServiceDetailDto } from './dto/update-service-detail.dto';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { RolesGuard } from '../auth/guards/roles.guard';
 import { Roles } from '../auth/decorators/roles.decorator';
 import { UserRole } from '../users/entities/user.entity';
 import { Public } from '../auth/decorators/public.decorator';
 import { ServicePaginationDto } from './dto/service-pagination.dto';
+import { Service } from './entities/service.entity';
+import { ServiceDetail } from './entities/service-detail.entity';
 
 @ApiTags('services')
 @Controller('services')
 @UseInterceptors(LoggingInterceptor)
+@ApiBearerAuth()
 export class ServicesController {
   constructor(private readonly servicesService: ServicesService) {}
 
@@ -139,7 +148,7 @@ export class ServicesController {
   @UseGuards(JwtAuthGuard, RolesGuard)
   @Roles(UserRole.ADMIN)
   @ApiOperation({ summary: 'Create a new service detail' })
-  @ApiResponse({ status: 201, description: 'Service detail created successfully' })
+  @ApiResponse({ status: 201, description: 'Service detail created successfully', type: ServiceDetail })
   @ApiResponse({ status: 204, description: 'Service not found' })
   @ApiResponse({ status: 400, description: 'Bad request' })
   async createServiceDetail(@Body() createServiceDetailDto: CreateServiceDetailDto) {
@@ -149,5 +158,43 @@ export class ServicesController {
       message: 'Service detail created successfully',
       data: serviceDetail,
     }, HttpStatus.CREATED);
+  }
+
+  @ApiOperation({ summary: 'Cập nhật chi tiết dịch vụ' })
+  @ApiParam({
+    name: 'id',
+    required: true,
+    description: 'ID của chi tiết dịch vụ cần cập nhật',
+    type: String
+  })
+  @ApiBody({
+    type: UpdateServiceDetailDto,
+    description: 'Dữ liệu cập nhật cho chi tiết dịch vụ'
+  })
+  @ApiResponse({ 
+    status: 200, 
+    description: 'Cập nhật thành công',
+    type: ServiceDetail 
+  })
+  @ApiResponse({ 
+    status: 400, 
+    description: 'Dữ liệu không hợp lệ hoặc trùng ngôn ngữ' 
+  })
+  @ApiResponse({ 
+    status: 404, 
+    description: 'Không tìm thấy chi tiết dịch vụ hoặc dịch vụ' 
+  })
+  @ApiResponse({ 
+    status: 401, 
+    description: 'Chưa đăng nhập' 
+  })
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles(UserRole.ADMIN)
+  @Put('details/:id')
+  updateServiceDetail(
+    @Param('id') id: string,
+    @Body() updateServiceDetailDto: UpdateServiceDetailDto
+  ) {
+    return this.servicesService.updateServiceDetail(id, updateServiceDetailDto);
   }
 }

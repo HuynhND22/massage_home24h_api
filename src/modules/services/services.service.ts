@@ -10,6 +10,7 @@ import { CreateServiceTranslationDto } from './dto/service-translation.dto';
 import { UpdateServiceTranslationDto } from './dto/service-translation.dto';
 import { ServicePaginationDto } from './dto/service-pagination.dto';
 import { CreateServiceDetailDto } from './dto/create-service-detail.dto';
+import { UpdateServiceDetailDto } from './dto/update-service-detail.dto';
 import { PaginationParams, PaginatedResponse } from '../../common/interfaces/pagination.interface';
 import { PaginationDto } from '../../common/dto/pagination.dto';
 import { Language } from '../../common/dto/base-translation.dto';
@@ -292,5 +293,51 @@ export class ServicesService {
 
     const serviceDetail = this.serviceDetailsRepository.create(createServiceDetailDto);
     return this.serviceDetailsRepository.save(serviceDetail);
+  }
+
+  async updateServiceDetail(id: string, updateServiceDetailDto: UpdateServiceDetailDto): Promise<ServiceDetail> {
+    // Kiểm tra service detail có tồn tại không
+    const existingDetail = await this.serviceDetailsRepository.findOne({
+      where: { id },
+    });
+
+    if (!existingDetail) {
+      throw new NotFoundException(`Service detail with ID "${id}" not found`);
+    }
+
+    // Kiểm tra service có tồn tại không
+    const service = await this.servicesRepository.findOne({
+      where: { id: updateServiceDetailDto.serviceId },
+    });
+
+    if (!service) {
+      throw new NotFoundException(`Service with ID "${updateServiceDetailDto.serviceId}" not found`);
+    }
+
+    // Kiểm tra xem có detail khác cùng ngôn ngữ không (trừ detail hiện tại)
+    const duplicateDetail = await this.serviceDetailsRepository
+      .createQueryBuilder('detail')
+      .where('detail.serviceId = :serviceId', { serviceId: updateServiceDetailDto.serviceId })
+      .andWhere('detail.language = :language', { language: updateServiceDetailDto.language })
+      .andWhere('detail.id != :id', { id })
+      .getOne();
+
+    if (duplicateDetail) {
+      throw new BadRequestException(`Another service detail with language "${updateServiceDetailDto.language}" already exists for this service`);
+    }
+
+    // Cập nhật detail
+    await this.serviceDetailsRepository.update(id, updateServiceDetailDto);
+
+    // Trả về detail đã cập nhật
+    const updatedDetail = await this.serviceDetailsRepository.findOne({
+      where: { id },
+    });
+
+    if (!updatedDetail) {
+      throw new NotFoundException(`Service detail with ID "${id}" not found after update`);
+    }
+
+    return updatedDetail;
   }
 }

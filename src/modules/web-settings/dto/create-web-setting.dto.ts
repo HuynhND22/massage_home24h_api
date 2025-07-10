@@ -74,6 +74,15 @@ export class CreateWebSettingDto {
   messenger?: string;
 
   @ApiProperty({
+    example: 'https://example.com/qr/messenger.png',
+    description: 'QR code image URL for Facebook Messenger',
+    required: false,
+  })
+  @IsString()
+  @IsOptional()
+  messengerQr?: string;
+
+  @ApiProperty({
     example: 'https://zalo.me/spa-page',
     description: 'Zalo URL of the business',
     required: false,
@@ -81,6 +90,15 @@ export class CreateWebSettingDto {
   @IsString()
   @IsOptional()
   zalo?: string;
+
+  @ApiProperty({
+    example: 'https://example.com/qr/zalo.png',
+    description: 'QR code image URL for Zalo',
+    required: false,
+  })
+  @IsString()
+  @IsOptional()
+  zaloQr?: string;
 
   @ApiProperty({
     example: 'wxid_xxxxxx',
@@ -92,6 +110,15 @@ export class CreateWebSettingDto {
   wechat?: string;
 
   @ApiProperty({
+    example: 'https://example.com/qr/wechat.png',
+    description: 'QR code image URL for WeChat',
+    required: false,
+  })
+  @IsString()
+  @IsOptional()
+  wechatQr?: string;
+
+  @ApiProperty({
     example: 'https://t.me/spa-page',
     description: 'Telegram URL or username of the business',
     required: false,
@@ -99,6 +126,15 @@ export class CreateWebSettingDto {
   @IsString()
   @IsOptional()
   telegram?: string;
+
+  @ApiProperty({
+    example: 'https://example.com/qr/telegram.png',
+    description: 'QR code image URL for Telegram',
+    required: false,
+  })
+  @IsString()
+  @IsOptional()
+  telegramQr?: string;
 
   @ApiProperty({
     example: 'https://line.me/spa-page',
@@ -110,6 +146,15 @@ export class CreateWebSettingDto {
   line?: string;
 
   @ApiProperty({
+    example: 'https://example.com/qr/line.png',
+    description: 'QR code image URL for Line',
+    required: false,
+  })
+  @IsString()
+  @IsOptional()
+  lineQr?: string;
+
+  @ApiProperty({
     example: 'https://open.kakao.com/spa-page',
     description: 'KakaoTalk URL or ID of the business',
     required: false,
@@ -117,6 +162,15 @@ export class CreateWebSettingDto {
   @IsString()
   @IsOptional()
   kakaotalk?: string;
+
+  @ApiProperty({
+    example: 'https://example.com/qr/kakaotalk.png',
+    description: 'QR code image URL for KakaoTalk',
+    required: false,
+  })
+  @IsString()
+  @IsOptional()
+  kakaotalkQr?: string;
 
   @ApiProperty({
     example: '84901234567',
@@ -128,6 +182,15 @@ export class CreateWebSettingDto {
   whatsapp?: string;
 
   @ApiProperty({
+    example: 'https://example.com/qr/whatsapp.png',
+    description: 'QR code image URL for WhatsApp',
+    required: false,
+  })
+  @IsString()
+  @IsOptional()
+  whatsappQr?: string;
+
+  @ApiProperty({
     example: 'spa_instagram',
     description: 'Instagram username of the business',
     required: false,
@@ -135,4 +198,13 @@ export class CreateWebSettingDto {
   @IsString()
   @IsOptional()
   instagram?: string;
+
+  @ApiProperty({
+    example: 'https://example.com/qr/instagram.png',
+    description: 'QR code image URL for Instagram',
+    required: false,
+  })
+  @IsString()
+  @IsOptional()
+  instagramQr?: string;
 }
